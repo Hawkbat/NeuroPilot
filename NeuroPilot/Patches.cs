@@ -19,26 +19,16 @@ namespace NeuroPilot
             return false;
         }
 
-        [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.IsAutopilotAvailable))]
-        public static bool ShipCockpitController_IsAutopilotAvailable(ref bool __result)
+        public static bool ReferenceFrame_GetAutopilotArrivalDistance(ReferenceFrame __instance, ref float __result)
         {
-            // Prevent player from activating autopilot directly
-            __result = false;
-            return false;
-        }
-
-        [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.OnTargetReferenceFrame))]
-        public static bool ShipCockpitController_OnTargetReferenceFrame()
-        {
-            // Prevent canceling of autopilot
-            return false;
-        }
-
-        [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.OnUntargetReferenceFrame))]
-        public static bool ShipCockpitController_OnUntargetReferenceFrame()
-        {
-            // Prevent canceling of autopilot
-            return false;
+            // Override the distance at which autopilot considers the ship to have arrived at the destination
+            var destination = Destinations.GetByReferenceFrame(__instance);
+            if (destination != null)
+            {
+                __result = destination.GetInnerRadius();
+                return false;
+            }
+            return true;
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(Locator), nameof(Locator.GetReferenceFrame))]
@@ -46,21 +36,167 @@ namespace NeuroPilot
         {
             // Override reference frame used as the target for landing mode, match velocity, etc.
             // Surely this will have no negative ramifications
-            __result = EnhancedAutoPilot.GetInstance().GetLandingTargetReferenceFrame();
+            __result = EnhancedAutoPilot.GetInstance().GetCurrentLocationReferenceFrame() ?? Locator._rfTracker.GetReferenceFrame();
             return false;
+        }
+
+        [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.OnTargetReferenceFrame))]
+        public static bool ShipCockpitController_OnTargetReferenceFrame()
+        {
+            // Prevent automatic canceling of autopilot
+            return false;
+        }
+
+        [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.OnUntargetReferenceFrame))]
+        public static bool ShipCockpitController_OnUntargetReferenceFrame()
+        {
+            // Prevent automatic canceling of autopilot
+            return false;
+        }
+
+        [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.Update))]
+        public static bool ShipCockpitController_Update(ShipCockpitController __instance)
+        {
+            // Copy-paste of the Update method to strip out user input for autopilot and landing modes
+            // Maybe could be done with patching OWInput.IsNewlyPressed() while in InputMode.ShipCockpit but that's even scarier
+
+            if (!__instance._playerAtFlightConsole)
+            {
+                return false;
+            }
+            if (__instance._controlsLocked && Time.time >= __instance._controlsUnlockTime)
+            {
+                __instance._controlsLocked = false;
+                __instance._thrustController.enabled = !__instance._shipSystemFailure;
+                if (!__instance._shipSystemFailure)
+                {
+                    if (__instance._thrustController.RequiresIgnition() && __instance._landingManager.IsLanded())
+                    {
+                        RumbleManager.SetShipThrottleCold();
+                    }
+                    else
+                    {
+                        RumbleManager.SetShipThrottleNormal();
+                    }
+                }
+            }
+            if (!__instance._autopilot.IsFlyingToDestination())
+            {
+                if (__instance.IsMatchVelocityAvailable(false) && OWInput.IsNewlyPressed(InputLibrary.matchVelocity, InputMode.All))
+                {
+                    __instance._autopilot.StartMatchVelocity(Locator.GetReferenceFrame(false), false);
+                }
+                else if (__instance._autopilot.IsMatchingVelocity() && !__instance._autopilot.IsFlyingToDestination() && OWInput.IsNewlyReleased(InputLibrary.matchVelocity, InputMode.All))
+                {
+                    __instance._autopilot.StopMatchVelocity();
+                }
+            }
+            if (__instance.UsingLandingCam())
+            {
+                if (__instance._enteringLandingCam)
+                {
+                    __instance.UpdateEnterLandingCamTransition();
+                }
+                if (!__instance._isLandingMode && __instance.IsLandingModeAvailable())
+                {
+                    __instance.EnterLandingMode();
+                }
+                else if (__instance._isLandingMode && !__instance.IsLandingModeAvailable())
+                {
+                    __instance.ExitLandingMode();
+                }
+                __instance._playerAttachOffset = Vector3.MoveTowards(__instance._playerAttachOffset, Vector3.zero, Time.deltaTime);
+            }
+            else
+            {
+                __instance._playerAttachOffset = __instance._thrusterModel.GetLocalAcceleration() / __instance._thrusterModel.GetMaxTranslationalThrust() * -0.2f;
+                if (Locator.GetToolModeSwapper().GetToolMode() == ToolMode.None && OWInput.IsNewlyPressed(InputLibrary.cancel, InputMode.All))
+                {
+                    __instance.ExitFlightConsole();
+                }
+            }
+            __instance._playerAttachPoint.SetAttachOffset(__instance._playerAttachOffset);
+
+            return false;
+        }
+
+        [HarmonyPostfix, HarmonyPatch(typeof(ShipPromptController), nameof(ShipPromptController.Update))]
+        public static void ShipPromptController_Update(ShipPromptController __instance)
+        {
+            // Hide autopilot prompts
+            __instance._autopilotPrompt.SetVisibility(false);
+            __instance._landingModePrompt.SetVisibility(false);
+            __instance._exitLandingCamPrompt.SetVisibility(false);
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(AlignShipWithReferenceFrame), nameof(AlignShipWithReferenceFrame.GetAlignmentDirection))]
         public static bool AlignShipWithReferenceFrame_GetAlignmentDirection(AlignShipWithReferenceFrame __instance, ref Vector3 __result)
         {
-            // Same as vanilla but using the landing target reference frame
-            var rf = EnhancedAutoPilot.GetInstance().GetLandingTargetReferenceFrame();
-            if (rf == null)
+            // Override alignment while autopilot is active
+            var autopilot = EnhancedAutoPilot.GetInstance();
+            if (!autopilot.IsAutopilotActive())
             {
-                __result = __instance._currentDirection;
-                return false;
+                // If autopilot is not active, use the original method
+                return true;
             }
-            __result = rf.GetPosition() - __instance._owRigidbody.GetWorldCenterOfMass();
+
+            __result = __instance._currentDirection;
+
+            if (autopilot.IsTakingOff() || autopilot.IsLanding())
+            {
+                var rf = EnhancedAutoPilot.GetInstance().GetCurrentLocationReferenceFrame();
+                if (rf != null)
+                {
+                    __result = rf.GetPosition() - __instance._owRigidbody.GetWorldCenterOfMass();
+                }
+            }
+            else if (autopilot.IsTraveling())
+            {
+                var rf = autopilot.GetCurrentDestination()?.GetReferenceFrame();
+                if (rf != null)
+                {
+                    __result = rf.GetPosition() - __instance._owRigidbody.GetWorldCenterOfMass();
+                }
+            }
+            return false;
+        }
+
+        [HarmonyPrefix, HarmonyPatch(typeof(ShipThrusterController), nameof(ShipThrusterController.ReadTranslationalInput))]
+        public static bool ShipThrusterController_ReadTranslationalInput(ShipThrusterController __instance, ref Vector3 __result)
+        {
+            var autopilot = EnhancedAutoPilot.GetInstance();
+
+            // Override translational input for autopilot control
+            if (autopilot.IsAutopilotActive())
+            {
+                if (__instance._requireIgnition)
+                {
+                    __instance._requireIgnition = false;
+                    GlobalMessenger.FireEvent("StartShipIgnition");
+                    GlobalMessenger.FireEvent("CompleteShipIgnition");
+                    RumbleManager.PlayShipIgnition();
+                    RumbleManager.SetShipThrottleNormal();
+                }
+
+                // If the ship is in autopilot mode, return the autopilot's thrust vector
+                if (autopilot.IsTakingOff() || autopilot.IsLanding())
+                {
+                    var currentVelocity = autopilot.GetCurrentLandingVelocity();
+                    var targetVelocity = autopilot.GetTargetLandingVelocity();
+                    var smoothingRange = 20f;
+
+                    var unclampedThrust = (targetVelocity - currentVelocity) / smoothingRange;
+                    var thrust = Mathf.Clamp(unclampedThrust, -1f, 1f);
+                    __result = Vector3.up * thrust;
+                    return false;
+                }
+            }
+
+            var rf = autopilot.GetCurrentLocationReferenceFrame();
+            // If the ship is not in open space, allow manual control
+            if (rf != null) return true;
+
+            __result = Vector3.zero;
             return false;
         }
     }
