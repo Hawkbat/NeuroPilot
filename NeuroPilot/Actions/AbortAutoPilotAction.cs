@@ -10,9 +10,9 @@ using System.Threading.Tasks;
 
 namespace NeuroPilot.Actions
 {
-    public class AbortAutoPilotTravelAction : NeuroAction
+    public class AbortAutoPilotAction : NeuroAction
     {
-        public override string Name => "abortAutoPilotTravel";
+        public override string Name => "abortAutoPilot";
 
         protected override string Description => "Deactivates the ship's autopilot while in flight, returning control to the player.";
 

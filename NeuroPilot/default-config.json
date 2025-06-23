@@ -1,4 +1,16 @@
 {
   "$schema": "https://raw.githubusercontent.com/ow-mods/owml/master/schemas/config_schema.json",
-  "enabled": true
+  "enabled": true,
+  "settings": {
+    "Debug Mode": {
+      "tooltip": "Enables a debug overlay that can control the autopilot directly.",
+      "type": "toggle",
+      "value": false
+    },
+    "Neuro API URL": {
+      "tooltip": "The URL of the Neuro API server. The NEURO_SDK_WS_URL environment variable will be used if blank. Game must be restarted to take effect.",
+      "type": "text",
+      "value": ""
+    }
+  }
 }

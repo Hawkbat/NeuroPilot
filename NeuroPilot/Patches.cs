@@ -190,10 +190,36 @@ namespace NeuroPilot
                     __result = Vector3.up * thrust;
                     return false;
                 }
+
+                if (autopilot.IsEvading())
+                {
+                    var target = ((EvadeTask)autopilot.GetCurrentTask()).location;
+                    if (target != null)
+                    {
+                        var dir = __instance._shipBody.GetWorldCenterOfMass() - target.GetPosition();
+                        __result = __instance.transform.InverseTransformDirection(dir.normalized);
+                        return false;
+                    }
+                }
             }
 
+            var loc = autopilot.GetCurrentLocation();
+            if (loc != null)
+            {
+                // Allow the player to control the ship while within the current location's inner radius plus a fudge factor in case autopilot undershot
+                if (loc.GetDistanceToShip() < loc.GetInnerRadius() + 100f)
+                {
+                    return true;
+                }
+                else
+                {
+                    __result = Vector3.zero;
+                    return false;
+                }
+            }
+
+            // Fallback if there's no destination and there's still a reference frame nearby
             var rf = autopilot.GetCurrentLocationReferenceFrame();
-            // If the ship is not in open space, allow manual control
             if (rf != null) return true;
 
             __result = Vector3.zero;

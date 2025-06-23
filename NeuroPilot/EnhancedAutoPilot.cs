@@ -44,6 +44,8 @@ namespace NeuroPilot
         public string GetCurrentDestinationName() =>
             GetCurrentDestination()?.ToString() ?? autopilot._referenceFrame?.GetHUDDisplayName() ?? string.Empty;
 
+        public Destination GetCurrentLocation() => Destinations.GetShipLocation() ?? Destinations.GetByReferenceFrame(shipSectorDetector.GetPassiveReferenceFrame());
+
         public ReferenceFrame GetCurrentLocationReferenceFrame() => Destinations.GetShipLocation()?.GetReferenceFrame() ??
             shipSectorDetector.GetPassiveReferenceFrame();
 
@@ -53,6 +55,7 @@ namespace NeuroPilot
         public bool IsTraveling() => GetCurrentTask() is TravelTask;
         public bool IsTakingOff() => GetCurrentTask() is TakeOffTask;
         public bool IsLanding() => GetCurrentTask() is LandingTask;
+        public bool IsEvading() => GetCurrentTask() is EvadeTask;
 
         protected void Awake()
         {
@@ -146,6 +149,26 @@ namespace NeuroPilot
                     CompleteTask();
                 }
             }
+            if (currentTask is EvadeTask evadeTask)
+            {
+                var target = evadeTask.location;
+                if (target != null)
+                {
+                    var towardsDir = (target.GetPosition() - Locator.GetShipBody().GetPosition()).normalized;
+                    var relativeVelocity = Locator.GetShipBody().GetRelativeVelocity(target).normalized;
+                    var isMovingAway = Vector3.Dot(towardsDir, relativeVelocity) < -0.25f;
+                    if (isMovingAway)
+                    {
+                        OnAutopilotMessage.Invoke($"Autopilot successfully evaded {Destinations.GetByReferenceFrame(evadeTask.location)?.GetName() ?? evadeTask.location.GetHUDDisplayName()}.");
+                        CompleteTask();
+                    }
+                }
+                else
+                {
+                    OnAutopilotMessage.Invoke("Autopilot has aborted evasion because the target location no longer exists.");
+                    AbortTask();
+                }
+            }
             if (currentTask is TravelTask travelTask)
             {
                 if (!autopilot.IsFlyingToDestination() && !autopilot.FlyToDestination(travelTask.destination.GetReferenceFrame()))
@@ -160,7 +183,7 @@ namespace NeuroPilot
                 }
             }
             cockpitController._thrustController.enabled = !cockpitController._shipSystemFailure;
-            cockpitController._thrustController._shipAlignment.enabled = IsAutopilotActive();
+            cockpitController._thrustController._shipAlignment.enabled = IsTraveling() || IsTakingOff() || IsLanding();
             cockpitController._thrustController._shipAlignment._localAlignmentAxis = IsTraveling() ? Vector3.forward : Vector3.down;
         }
 
@@ -187,23 +210,7 @@ namespace NeuroPilot
 
         public bool TryEngageTravel(string destinationName, out string error)
         {
-            if (!playerHasEnteredShip)
-            {
-                error = "Autopilot cannot be engaged until the ship has been powered on.";
-                return false;
-            }
-
-            if (autopilot.IsDamaged())
-            {
-                error = "Autopilot module is damaged and cannot be engaged until it is repaired manually.";
-                return false;
-            }
-
-            if (autopilot.IsFlyingToDestination())
-            {
-                error = $"Autopilot is already engaged to travel to '{GetCurrentDestinationName()}'. Please abort the current travel before setting a new destination.";
-                return false;
-            }
+            if (!ValidateAutopilotStatus(out error)) return false;
 
             var destination = Destinations.GetByName(destinationName);
             if (destination == null)
@@ -238,9 +245,10 @@ namespace NeuroPilot
                 return false;
             }
 
-            autopilot.Abort();
-            AbortTask();
-            OnAutopilotMessage.Invoke("Autopilot travel has been aborted.");
+            if (autopilot.IsFlyingToDestination()) autopilot.Abort();
+            if (IsAutopilotActive()) AbortTask();
+
+            OnAutopilotMessage.Invoke("Autopilot has been manually aborted.");
 
             error = string.Empty;
             return true;
@@ -248,21 +256,8 @@ namespace NeuroPilot
 
         public bool TryTakeOff(out string error)
         {
-            if (!playerHasEnteredShip)
-            {
-                error = "Autopilot cannot be engaged until the ship has been powered on.";
-                return false;
-            }
-            if (autopilot.IsDamaged())
-            {
-                error = "Autopilot module is damaged and cannot be engaged until it is repaired manually.";
-                return false;
-            }
-            if (autopilot.IsFlyingToDestination())
-            {
-                error = $"Autopilot is already engaged to travel to '{GetCurrentDestinationName()}'. Please abort the current travel before taking off.";
-                return false;
-            }
+            if (!ValidateAutopilotStatus(out error)) return false;
+
             if (GetCurrentLocationReferenceFrame() == null)
             {
                 error = "Cannot take off because the ship is not currently landed at a location.";
@@ -276,21 +271,8 @@ namespace NeuroPilot
 
         public bool TryLand(out string error)
         {
-            if (!playerHasEnteredShip)
-            {
-                error = "Autopilot cannot be engaged until the ship has been powered on.";
-                return false;
-            }
-            if (autopilot.IsDamaged())
-            {
-                error = "Autopilot module is damaged and cannot be engaged until it is repaired manually.";
-                return false;
-            }
-            if (autopilot.IsFlyingToDestination())
-            {
-                error = $"Autopilot is already engaged to travel to '{GetCurrentDestinationName()}'. Please abort the current travel before landing.";
-                return false;
-            }
+            if (!ValidateAutopilotStatus(out error)) return false;
+
             if (GetCurrentLocationReferenceFrame() == null)
             {
                 error = "Cannot land because the ship is not currently in a valid location to land at.";
@@ -303,6 +285,37 @@ namespace NeuroPilot
             }
 
             AcceptTask(new LandingTask(GetCurrentLocationReferenceFrame()));
+            error = string.Empty;
+            return true;
+        }
+
+        public bool TryEvade(string destinationName, out string error)
+        {
+            if (IsTraveling()) AbortTask();
+
+            if (!ValidateAutopilotStatus(out error)) return false;
+
+            var destination = Destinations.GetByName(destinationName);
+            if (destination == null)
+            {
+                error = $"Destination '{destinationName}' not found. Valid destinations are: {string.Join(", ", Destinations.GetAllValidNames())}";
+                return false;
+            }
+
+            if (!destination.IsAvailable(out string validationError))
+            {
+                error = $"Destination '{destinationName}' is not currently available: {validationError}";
+                return false;
+            }
+
+            var refFrame = destination.GetReferenceFrame();
+            if (refFrame == null)
+            {
+                error = $"Cannot acquire a lock on destination '{destinationName}'.";
+                return false;
+            }
+
+            AcceptTask(new EvadeTask(refFrame));
             error = string.Empty;
             return true;
         }
@@ -325,6 +338,27 @@ namespace NeuroPilot
             }
 
             return $"Autopilot is currently idle. You can engage it to travel to a destination.";
+        }
+
+        private bool ValidateAutopilotStatus(out string error)
+        {
+            if (!playerHasEnteredShip)
+            {
+                error = "Autopilot cannot be engaged until the ship has been powered on.";
+                return false;
+            }
+            if (autopilot.IsDamaged())
+            {
+                error = "There is a problem with the AI. Autopilot module is damaged and cannot be engaged until it is repaired manually.";
+                return false;
+            }
+            if (autopilot.IsFlyingToDestination())
+            {
+                error = $"Autopilot is already engaged to travel to '{GetCurrentDestinationName()}'. Please abort the current travel first.";
+                return false;
+            }
+            error = string.Empty;
+            return true;
         }
 
         private void AcceptTask(AutoPilotTask task)
@@ -355,6 +389,8 @@ namespace NeuroPilot
 
         private void AbortTask()
         {
+            if (autopilot.IsFlyingToDestination()) autopilot.Abort();
+
             taskQueue.Clear();
             if (taskNotification != null)
             {
@@ -400,7 +436,7 @@ namespace NeuroPilot
 
         private void Autopilot_OnArriveAtDestination(float arrivalError)
         {
-            if (Math.Abs(arrivalError) > 500f)
+            if (arrivalError > 100f)
             {
                 // We effectively *didn't* arrive at the destination if the error is too large; retry
                 AcceptTask(new TravelTask(GetCurrentDestination()));
@@ -419,19 +455,19 @@ namespace NeuroPilot
                 OnAutopilotMessage.Invoke($"Autopilot successfully arrived at destination: {GetCurrentDestinationName()}.");
             }
 
-            CompleteTask();
+            if (IsTraveling()) CompleteTask();
         }
 
         private void Autopilot_OnAlreadyAtDestination()
         {
             OnAutopilotMessage.Invoke($"Autopilot is already at destination: {GetCurrentDestinationName()}.");
-            AbortTask();
+            if (IsTraveling()) AbortTask();
         }
 
         private void Autopilot_OnAbortAutopilot()
         {
             OnAutopilotMessage.Invoke($"Autopilot to destination '{GetCurrentDestinationName()}' has been aborted.");
-            AbortTask();
+            if (IsTraveling()) AbortTask();
         }
 
         private void OnEnterShip()

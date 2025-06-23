@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace NeuroPilot.Actions
 {
-    public class EngageAutoPilotTravelAction : NeuroAction<string>
+    public class TravelAction : NeuroAction<string>
     {
         const string destinationPropName = "destination";
 
@@ -27,12 +27,12 @@ namespace NeuroPilot.Actions
             },
         };
 
-        protected override ExecutionResult Validate(ActionJData actionData, out string parsedData)
+        protected override ExecutionResult Validate(ActionJData actionData, out string destinationName)
         {
-            var destinationName = actionData.Data?[destinationPropName]?.ToString();
-            parsedData = destinationName ?? string.Empty;
+            var destinationProp = actionData.Data?[destinationPropName]?.ToString();
+            destinationName = destinationProp ?? string.Empty;
 
-            if (string.IsNullOrEmpty(destinationName))
+            if (string.IsNullOrEmpty(destinationProp))
             {
                 return ExecutionResult.Failure($"`{destinationPropName}` is required.");
             }

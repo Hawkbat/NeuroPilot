@@ -15,35 +15,35 @@ namespace NeuroPilot
             new StrangerDestination("The Stranger (Dark Side Docking Bay)", "SolarSystemRoot/RingWorld_Body/Sector_RingWorld/Volumes_RingWorld/RFVolume_IP_DarkSideDockingBay", false, 200f, 300f),
             new StrangerDestination("The Stranger (Light Side Docking Bay)", "SolarSystemRoot/RingWorld_Body/Sector_RingWorld/Volumes_RingWorld/RFVolume_IP_LightSideDockingBay", true, 200f, 300f),
 
-            new FixedDestination("The Sun", "SolarSystemRoot/Sun_Body/RFVolume_SUN", 25000f, 25000f),
-            new FixedDestination("Sun Station (Warp Module)", "SolarSystemRoot/SunStation_Pivot/SunStation_Body/Sector_SunStation/Sector_WarpModule/Volumes_WarpModule/RFVolume", 50f, 150f),
-            new FixedDestination("Sun Station (Control Module)", "SolarSystemRoot/SunStation_Pivot/SunStation_Body/Sector_SunStation/Sector_ControlModule/Volumes/RFVolume", 50f, 150f),
+            new FloatingDestination("The Sun", "SolarSystemRoot/Sun_Body/RFVolume_SUN", 3000f, 4000f),
+            new FloatingDestination("Sun Station (Warp Module)", "SolarSystemRoot/SunStation_Pivot/SunStation_Body/Sector_SunStation/Sector_WarpModule/Volumes_WarpModule/RFVolume", 50f, 150f),
+            new FloatingDestination("Sun Station (Control Module)", "SolarSystemRoot/SunStation_Pivot/SunStation_Body/Sector_SunStation/Sector_ControlModule/Volumes/RFVolume", 50f, 150f),
 
-            new LandingDestination("Ash Twin", "SolarSystemRoot/FocalBody/TowerTwin_Body/Volumes_TowerTwin/RFVolume", 380f, 600f),
-            new LandingDestination("Ember Twin", "SolarSystemRoot/FocalBody/CaveTwin_Body/Volumes_CaveTwin/RFVolume", 380f, 600f),
+            new PlanetoidDestination("Ash Twin", "SolarSystemRoot/FocalBody/TowerTwin_Body/Volumes_TowerTwin/RFVolume", 380f, 600f),
+            new PlanetoidDestination("Ember Twin", "SolarSystemRoot/FocalBody/CaveTwin_Body/Volumes_CaveTwin/RFVolume", 380f, 600f),
 
-            new LandingDestination("Timber Hearth", "SolarSystemRoot/TimberHearth_Body/RFVolume_TH", 400f, 700f),
-            new LandingDestination("The Attlerock", "SolarSystemRoot/Moon_Pivot/Moon_Body/RFVolume_THM", 130f, 300f),
+            new PlanetoidDestination("Timber Hearth", "SolarSystemRoot/TimberHearth_Body/RFVolume_TH", 400f, 700f),
+            new PlanetoidDestination("The Attlerock", "SolarSystemRoot/Moon_Pivot/Moon_Body/RFVolume_THM", 130f, 300f),
 
-            new LandingDestination("Brittle Hollow", "SolarSystemRoot/BrittleHollow_Body/RFVolume_BH", 600f, 900f),
-            new FixedDestination("Hollow's Lantern", "SolarSystemRoot/VolcanicMoon_Pivot/VolcanicMoon_Body/RFVolume_VM", 200f, 500f),
+            new PlanetoidDestination("Brittle Hollow", "SolarSystemRoot/BrittleHollow_Body/RFVolume_BH", 600f, 900f),
+            new FloatingDestination("Hollow's Lantern", "SolarSystemRoot/VolcanicMoon_Pivot/VolcanicMoon_Body/RFVolume_VM", 200f, 500f),
 
-            new LandingDestination("Giant's Deep", "SolarSystemRoot/GiantsDeep_Body/RFVolume_GD", 950f, 1500f),
-            new FixedDestination("Orbital Probe Cannon", "SolarSystemRoot/OrbitalProbeCannon_Pivot/OrbitalProbeCannon_Body/RFVolume_OrbitalProbeCannon", 200f, 400f),
+            new PlanetoidDestination("Giant's Deep", "SolarSystemRoot/GiantsDeep_Body/RFVolume_GD", 950f, 1500f),
+            new FloatingDestination("Orbital Probe Cannon", "SolarSystemRoot/OrbitalProbeCannon_Pivot/OrbitalProbeCannon_Body/RFVolume_OrbitalProbeCannon", 200f, 400f),
             
-            new FixedDestination("Dark Bramble", "SolarSystemRoot/DarkBramble_Body/RFVolume_DB", 950f, 1400f),
+            new FloatingDestination("Dark Bramble", "SolarSystemRoot/DarkBramble_Body/RFVolume_DB", 950f, 1400f),
 
-            new LandingDestination("The Interloper", "SolarSystemRoot/Comet_Body/RFVolume_CO", 300f, 600f),
+            new PlanetoidDestination("The Interloper", "SolarSystemRoot/Comet_Body/RFVolume_CO", 300f, 600f),
             new ShuttleDestination("Interloper Shuttle", "SolarSystemRoot/Comet_Body/Prefab_NOM_Shuttle/Shuttle_Body/RF_Volume", 50f, 100f),
             
-            new FixedDestination("White Hole Station", "SolarSystemRoot/WhiteHole_Body/WhiteholeStation_Body/RFVolume_WhiteholeStation", 100f, 300f),
+            new FloatingDestination("White Hole Station", "SolarSystemRoot/WhiteHole_Body/WhiteholeStation_Body/RFVolume_WhiteholeStation", 100f, 300f),
 
-            new FixedDestination("Hearthian Map Satellite", "SolarSystemRoot/HearthianMapSatellite_PivotY/HearthianMapSatellite_PivotX/HearthianMapSatellite_Body/RFVolume_HMS", 100f, 300f),
+            new FloatingDestination("Hearthian Map Satellite", "SolarSystemRoot/HearthianMapSatellite_PivotY/HearthianMapSatellite_PivotX/HearthianMapSatellite_Body/RFVolume_HMS", 100f, 300f),
 
-            new LandingDestination("The Quantum Moon", "SolarSystemRoot/QuantumMoon_Body/Volumes/RFVolume", 110f, 300f),
+            new QuantumMoonDestination("The Quantum Moon", "SolarSystemRoot/QuantumMoon_Body/Volumes/RFVolume", 110f, 300f),
             new ShuttleDestination("Quantum Moon Shuttle", "SolarSystemRoot/QuantumMoon_Body/Sector_QuantumMoon/QuantumShuttle/Prefab_NOM_Shuttle/Shuttle_Body/RF_Volume", 50f, 100f),
 
-            new FixedDestination("Backer Satellite", "SolarSystemRoot/BackerSatellite_Pivot/BackerSatellite_Body/RFVolume_BS", 100f, 300f),
+            new FloatingDestination("Backer Satellite", "SolarSystemRoot/BackerSatellite_Pivot/BackerSatellite_Body/RFVolume_BS", 100f, 300f),
             
             new ShipDestination(),
         ];
@@ -51,6 +51,7 @@ namespace NeuroPilot
         public static IEnumerable<Destination> GetAll() => destinations;
         public static IEnumerable<Destination> GetAllValid() => destinations.Where(d => d.IsAvailable(out string reason));
 
+        public static IEnumerable<string> GetAllNames() => destinations.Select(d => d.GetName());
         public static IEnumerable<string> GetAllValidNames() => GetAllValid().Select(d => d.GetName());
 
         public static Destination GetByName(string name)
@@ -115,7 +116,7 @@ namespace NeuroPilot
         public abstract float GetDistanceToPlayer();
     }
 
-    public class FixedDestination(string name, string path, float innerRadius, float outerRadius) : Destination(name, innerRadius, outerRadius)
+    public abstract class FixedDestination(string name, string path, float innerRadius, float outerRadius) : Destination(name, innerRadius, outerRadius)
     {
         protected readonly string path = path;
 
@@ -152,9 +153,28 @@ namespace NeuroPilot
         }
     }
 
-    public class LandingDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
+    public class FloatingDestination(string name, string path, float innerRadius, float outerRadius): FixedDestination(name, path, innerRadius, outerRadius)
+    {
+
+    }
+
+    public class PlanetoidDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
         public override bool CanLand() => true;
+    }
+
+    public class QuantumMoonDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
+    {
+        public override string GetName()
+        {
+            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("QUANTUM_MOON").GetState() == ShipLogEntry.State.Hidden)
+            {
+                return "Round white moon";
+            }
+            return $"The Quantum Moon";
+        }
+
+        public override bool CanLand() => false;
     }
 
     public class StrangerDestination(string name, string path, bool lightSide, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
@@ -167,7 +187,7 @@ namespace NeuroPilot
             {
                 return "Dark shadow over the sun";
             }
-            return "The Stranger";
+            return $"The Stranger";
         }
 
         public override bool IsAvailable(out string reason)
@@ -225,16 +245,19 @@ namespace NeuroPilot
         NomaiShuttleController controller;
 
         public override bool CanLand() => false;
+
         public override bool IsAvailable(out string reason)
         {
             if (!base.IsAvailable(out reason)) return false;
             if (!controller)
             {
                 var shuttleBody = GetReferenceFrame()?.GetOWRigidBody();
-                if (shuttleBody)
+                if (!shuttleBody)
                 {
-                    controller = shuttleBody.GetComponentInChildren<NomaiShuttleController>();   
+                    reason = "Shuttle body not found.";
+                    return false;
                 }
+                controller = shuttleBody.transform.parent.GetComponent<NomaiShuttleController>();   
                 if (!controller)
                 {
                     reason = "Shuttle not found.";
