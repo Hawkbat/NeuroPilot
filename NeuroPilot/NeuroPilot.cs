@@ -93,7 +93,8 @@ namespace NeuroPilot
                     new EvadeAction(),
                     new AbortAutoPilotAction(),
                     new CheckAutoPilotAction(),
-                    new SetShipHeadlightsAction(),
+                    new ControlShipHatchAction(),
+                    new ControlShipHeadlightsAction(),
                 ];
 
                 NeuroActionHandler.RegisterActions(neuroActions);
