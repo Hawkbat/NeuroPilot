@@ -13,14 +13,17 @@ namespace NeuroPilot
 {
     public class NeuroPilot : ModBehaviour
     {
-        internal static NeuroPilot Instance;
+        internal static NeuroPilot instance;
+
+        public static bool ManualOverride => instance.manualOverride;
 
         INeuroAction[] neuroActions;
         bool debugMode;
+        bool manualOverride;
 
         protected void Awake()
         {
-            Instance = this;
+            instance = this;
         }
 
         protected void Start()
@@ -56,6 +59,7 @@ namespace NeuroPilot
         public override void Configure(IModConfig config)
         {
             debugMode = config.GetSettingsValue<bool>("Debug Mode");
+            manualOverride = config.GetSettingsValue<bool>("Manual Override");
         }
 
         protected void OnDestroy()

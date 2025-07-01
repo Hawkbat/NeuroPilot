@@ -62,7 +62,7 @@ namespace NeuroPilot
         public IEnumerable<Destination> GetPossibleObstacles() => possibleObstacles;
         public IEnumerable<Destination> GetActiveObstacles() => activeObstacles;
 
-        public bool IsAutopilotAvailable() => playerHasEnteredShip && !autopilot.IsDamaged() && !cockpitController._shipSystemFailure;
+        public bool IsAutopilotAvailable() => playerHasEnteredShip && !autopilot.IsDamaged() && !cockpitController._shipSystemFailure && !(NeuroPilot.ManualOverride && PlayerState.AtFlightConsole());
 
         protected void Awake()
         {
@@ -352,6 +352,11 @@ namespace NeuroPilot
 
         private bool ValidateAutopilotStatus(out string error)
         {
+            if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
+            {
+                error = "Autopilot cannot be engaged while the manual override is active.";
+                return false;
+            }
             if (!playerHasEnteredShip)
             {
                 error = "Autopilot cannot be engaged until the ship has been powered on.";

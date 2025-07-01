@@ -11,6 +11,11 @@
       "tooltip": "The URL of the Neuro API server. The NEURO_SDK_WS_URL environment variable will be used if blank. Game must be restarted to take effect.",
       "type": "text",
       "value": ""
+    },
+    "Manual Override": {
+      "tooltip": "Prevents the AI agent from controlling the ship while the player is piloting it. Use this setting if the game becomes unplayable otherwise.",
+      "type": "toggle",
+      "value": false
     }
   }
 }

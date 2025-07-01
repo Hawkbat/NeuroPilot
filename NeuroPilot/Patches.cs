@@ -60,6 +60,12 @@ namespace NeuroPilot
             // Copy-paste of the Update method to strip out user input for autopilot and landing modes
             // Maybe could be done with patching OWInput.IsNewlyPressed() while in InputMode.ShipCockpit but that's even scarier
 
+            if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
+            {
+                // If manual override is enabled and player is piloting, allow the original Update method to run and give full control
+                return true;
+            }
+
             if (!__instance._playerAtFlightConsole)
             {
                 return false;
@@ -123,7 +129,14 @@ namespace NeuroPilot
         [HarmonyPostfix, HarmonyPatch(typeof(ShipPromptController), nameof(ShipPromptController.Update))]
         public static void ShipPromptController_Update(ShipPromptController __instance)
         {
-            // Hide autopilot prompts
+            // Prevent autopilot prompts from showing up
+
+            if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
+            {
+                // If manual override is enabled and player is piloting, keep prompts visible
+                return;
+            }
+
             __instance._autopilotPrompt.SetVisibility(false);
             __instance._landingModePrompt.SetVisibility(false);
             __instance._exitLandingCamPrompt.SetVisibility(false);
@@ -164,6 +177,12 @@ namespace NeuroPilot
         [HarmonyPrefix, HarmonyPatch(typeof(ShipThrusterController), nameof(ShipThrusterController.ReadTranslationalInput))]
         public static bool ShipThrusterController_ReadTranslationalInput(ShipThrusterController __instance, ref Vector3 __result)
         {
+            // If manual override is enabled and player is piloting, allow player input
+            if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
+            {
+                return true;
+            }
+
             var autopilot = EnhancedAutoPilot.GetInstance();
 
             // Override translational input for autopilot control
