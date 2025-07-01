@@ -12,38 +12,38 @@ namespace NeuroPilot
         static readonly List<Destination> destinations = [
             new PlayerDestination(),
 
-            new StrangerDestination("The Stranger (Dark Side Docking Bay)", "SolarSystemRoot/RingWorld_Body/Sector_RingWorld/Volumes_RingWorld/RFVolume_IP_DarkSideDockingBay", false, 200f, 300f),
-            new StrangerDestination("The Stranger (Light Side Docking Bay)", "SolarSystemRoot/RingWorld_Body/Sector_RingWorld/Volumes_RingWorld/RFVolume_IP_LightSideDockingBay", true, 200f, 300f),
+            new StrangerDestination("The Stranger (Dark Side Docking Bay)", "RingWorld_Body/Sector_RingWorld/Volumes_RingWorld/RFVolume_IP_DarkSideDockingBay", false, 200f, 300f),
+            new StrangerDestination("The Stranger (Light Side Docking Bay)", "RingWorld_Body/Sector_RingWorld/Volumes_RingWorld/RFVolume_IP_LightSideDockingBay", true, 200f, 300f),
 
-            new FloatingDestination("The Sun", "SolarSystemRoot/Sun_Body/RFVolume_SUN", 3000f, 4000f),
-            new FloatingDestination("Sun Station (Warp Module)", "SolarSystemRoot/SunStation_Pivot/SunStation_Body/Sector_SunStation/Sector_WarpModule/Volumes_WarpModule/RFVolume", 50f, 150f),
-            new FloatingDestination("Sun Station (Control Module)", "SolarSystemRoot/SunStation_Pivot/SunStation_Body/Sector_SunStation/Sector_ControlModule/Volumes/RFVolume", 50f, 150f),
+            new FloatingDestination("The Sun", "Sun_Body/RFVolume_SUN", 3000f, 4000f),
+            new FloatingDestination("Sun Station (Warp Module)", "SunStation_Body/Sector_SunStation/Sector_WarpModule/Volumes_WarpModule/RFVolume", 50f, 150f),
+            new FloatingDestination("Sun Station (Control Module)", "SunStation_Body/Sector_SunStation/Sector_ControlModule/Volumes/RFVolume", 50f, 150f),
 
-            new PlanetoidDestination("Ash Twin", "SolarSystemRoot/FocalBody/TowerTwin_Body/Volumes_TowerTwin/RFVolume", 380f, 600f),
-            new PlanetoidDestination("Ember Twin", "SolarSystemRoot/FocalBody/CaveTwin_Body/Volumes_CaveTwin/RFVolume", 380f, 600f),
+            new PlanetoidDestination("Ash Twin", "TowerTwin_Body/Volumes_TowerTwin/RFVolume", 380f, 600f),
+            new PlanetoidDestination("Ember Twin", "CaveTwin_Body/Volumes_CaveTwin/RFVolume", 380f, 600f),
 
-            new PlanetoidDestination("Timber Hearth", "SolarSystemRoot/TimberHearth_Body/RFVolume_TH", 400f, 700f),
-            new PlanetoidDestination("The Attlerock", "SolarSystemRoot/Moon_Pivot/Moon_Body/RFVolume_THM", 130f, 300f),
+            new PlanetoidDestination("Timber Hearth", "TimberHearth_Body/RFVolume_TH", 400f, 700f),
+            new PlanetoidDestination("The Attlerock", "Moon_Body/RFVolume_THM", 130f, 300f),
 
-            new PlanetoidDestination("Brittle Hollow", "SolarSystemRoot/BrittleHollow_Body/RFVolume_BH", 600f, 900f),
-            new FloatingDestination("Hollow's Lantern", "SolarSystemRoot/VolcanicMoon_Pivot/VolcanicMoon_Body/RFVolume_VM", 200f, 500f),
+            new PlanetoidDestination("Brittle Hollow", "BrittleHollow_Body/RFVolume_BH", 600f, 900f),
+            new FloatingDestination("Hollow's Lantern", "VolcanicMoon_Body/RFVolume_VM", 200f, 500f),
 
-            new PlanetoidDestination("Giant's Deep", "SolarSystemRoot/GiantsDeep_Body/RFVolume_GD", 950f, 1500f),
-            new FloatingDestination("Orbital Probe Cannon", "SolarSystemRoot/OrbitalProbeCannon_Pivot/OrbitalProbeCannon_Body/RFVolume_OrbitalProbeCannon", 200f, 400f),
+            new PlanetoidDestination("Giant's Deep", "GiantsDeep_Body/RFVolume_GD", 950f, 1500f),
+            new FloatingDestination("Orbital Probe Cannon", "OrbitalProbeCannon_Body/RFVolume_OrbitalProbeCannon", 200f, 400f),
             
-            new FloatingDestination("Dark Bramble", "SolarSystemRoot/DarkBramble_Body/RFVolume_DB", 950f, 1400f),
+            new FloatingDestination("Dark Bramble", "DarkBramble_Body/RFVolume_DB", 950f, 1400f),
 
-            new PlanetoidDestination("The Interloper", "SolarSystemRoot/Comet_Body/RFVolume_CO", 300f, 600f),
-            new ShuttleDestination("Interloper Shuttle", "SolarSystemRoot/Comet_Body/Prefab_NOM_Shuttle/Shuttle_Body/RF_Volume", 50f, 100f),
+            new PlanetoidDestination("The Interloper", "Comet_Body/RFVolume_CO", 300f, 600f),
+            new ShuttleDestination("Interloper Shuttle", NomaiShuttleController.ShuttleID.HourglassShuttle, 50f, 100f),
             
-            new FloatingDestination("White Hole Station", "SolarSystemRoot/WhiteHole_Body/WhiteholeStation_Body/RFVolume_WhiteholeStation", 100f, 300f),
+            new FloatingDestination("White Hole Station", "WhiteholeStation_Body/RFVolume_WhiteholeStation", 100f, 300f),
 
-            new FloatingDestination("Hearthian Map Satellite", "SolarSystemRoot/HearthianMapSatellite_PivotY/HearthianMapSatellite_PivotX/HearthianMapSatellite_Body/RFVolume_HMS", 100f, 300f),
+            new FloatingDestination("Hearthian Map Satellite", "HearthianMapSatellite_Body/RFVolume_HMS", 100f, 300f),
 
-            new QuantumMoonDestination("The Quantum Moon", "SolarSystemRoot/QuantumMoon_Body/Volumes/RFVolume", 110f, 300f),
-            new ShuttleDestination("Quantum Moon Shuttle", "SolarSystemRoot/QuantumMoon_Body/Sector_QuantumMoon/QuantumShuttle/Prefab_NOM_Shuttle/Shuttle_Body/RF_Volume", 50f, 100f),
+            new QuantumMoonDestination("The Quantum Moon", "QuantumMoon_Body/Volumes/RFVolume", 110f, 300f),
+            new ShuttleDestination("Quantum Moon Shuttle", NomaiShuttleController.ShuttleID.BrittleHollowShuttle, 50f, 100f),
 
-            new FloatingDestination("Backer Satellite", "SolarSystemRoot/BackerSatellite_Pivot/BackerSatellite_Body/RFVolume_BS", 100f, 300f),
+            new FloatingDestination("Backer Satellite", "BackerSatellite_Body/RFVolume_BS", 100f, 300f),
             
             new ShipDestination(),
         ];
@@ -78,7 +78,7 @@ namespace NeuroPilot
 
         public static void SetUp()
         {
-            foreach (var d in destinations) d.GetReferenceFrame();
+            foreach (var d in destinations) d.SetUp();
         }
     }
 
@@ -114,6 +114,8 @@ namespace NeuroPilot
 
         public abstract float GetDistanceToShip();
         public abstract float GetDistanceToPlayer();
+
+        public virtual void SetUp() { }
     }
 
     public abstract class FixedDestination(string name, string path, float innerRadius, float outerRadius) : Destination(name, innerRadius, outerRadius)
@@ -124,16 +126,8 @@ namespace NeuroPilot
 
         public override bool CanLand() => false;
 
-        public ReferenceFrameVolume GetReferenceFrameVolume()
-        {
-            if (!rfv && !string.IsNullOrEmpty(path))
-                rfv = GameObject.Find(path).GetComponent<ReferenceFrameVolume>();
-            return rfv;
-        }
-
         public override ReferenceFrame GetReferenceFrame()
         {
-            var rfv = GetReferenceFrameVolume();
             if (rfv) return rfv.GetReferenceFrame();
             return null;
         }
@@ -151,9 +145,31 @@ namespace NeuroPilot
             var destPos = rfv ? rfv.GetReferenceFrame().GetPosition() : playerPos;
             return Vector3.Distance(destPos, playerPos);
         }
+
+        public override void SetUp()
+        {
+            var parts = path.Split('/');
+            var go = GameObject.Find(parts[0]);
+            if (go == null)
+            {
+                throw new Exception($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[0]}");
+            }
+            for (var i = 1; i < parts.Length; i++)
+            {
+                var t = go.transform.Find(parts[i]);
+                if (t == null)
+                {
+                    throw new Exception($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[i]}");
+                }
+                go = t.gameObject;
+            }
+
+            rfv = go.GetComponent<ReferenceFrameVolume>();
+            if (!rfv) throw new Exception($"Destination '{name}' at path '{path}' does not have a ReferenceFrameVolume component.");
+        }
     }
 
-    public class FloatingDestination(string name, string path, float innerRadius, float outerRadius): FixedDestination(name, path, innerRadius, outerRadius)
+    public class FloatingDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
 
     }
@@ -240,8 +256,10 @@ namespace NeuroPilot
         }
     }
 
-    public class ShuttleDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
+    public class ShuttleDestination(string name, NomaiShuttleController.ShuttleID shuttleID, float innerRadius, float outerRadius) : Destination(name, innerRadius, outerRadius)
     {
+        readonly NomaiShuttleController.ShuttleID shuttleID = shuttleID;
+        ReferenceFrameVolume rfv;
         NomaiShuttleController controller;
 
         public override bool CanLand() => false;
@@ -251,18 +269,8 @@ namespace NeuroPilot
             if (!base.IsAvailable(out reason)) return false;
             if (!controller)
             {
-                var shuttleBody = GetReferenceFrame()?.GetOWRigidBody();
-                if (!shuttleBody)
-                {
-                    reason = "Shuttle body not found.";
-                    return false;
-                }
-                controller = shuttleBody.transform.parent.GetComponent<NomaiShuttleController>();   
-                if (!controller)
-                {
-                    reason = "Shuttle not found.";
-                    return false;
-                }
+                reason = "Shuttle not found.";
+                return false;
             }
             if (!controller.IsPlayerInside())
             {
@@ -271,9 +279,35 @@ namespace NeuroPilot
             }
             return true;
         }
+
+        public override ReferenceFrame GetReferenceFrame()
+        {
+            if (rfv) return rfv.GetReferenceFrame();
+            return null;
+        }
+
+        public override float GetDistanceToShip()
+        {
+            var shipPos = Locator.GetShipBody().GetPosition();
+            var destPos = rfv ? rfv.GetReferenceFrame().GetPosition() : shipPos;
+            return Vector3.Distance(destPos, shipPos);
+        }
+
+        public override float GetDistanceToPlayer()
+        {
+            var playerPos = Locator.GetPlayerBody().GetPosition();
+            var destPos = rfv ? rfv.GetReferenceFrame().GetPosition() : playerPos;
+            return Vector3.Distance(destPos, playerPos);
+        }
+
+        public override void SetUp()
+        {
+            controller = GameObject.FindObjectsOfType<NomaiShuttleController>().FirstOrDefault(c => c.GetID() == shuttleID);
+            rfv = controller._shuttleBody.transform.Find("RF_Volume").GetComponent<ReferenceFrameVolume>();
+        }
     }
 
-    public class ShipDestination() : FixedDestination("Ship", "SolarSystemRoot/TimberHearth_Body/ShipContainer/Ship_Body/Volumes/RFVolume", 0f, 20f)
+    public class ShipDestination() : FixedDestination("Ship", "Ship_Body/Volumes/RFVolume", 0f, 20f)
     {
         public override bool CanLand() => false;
 
@@ -310,29 +344,7 @@ namespace NeuroPilot
 
         public override ReferenceFrame GetReferenceFrame()
         {
-            if (!rfv)
-            {
-                var player = GameObject.FindGameObjectWithTag("Player");
-
-                var go = new GameObject("RFVolume");
-                go.transform.SetParent(player.transform, false);
-                go.layer = LayerMask.NameToLayer("ReferenceFrameVolume");
-                go.SetActive(false);
-
-                var col = go.AddComponent<SphereCollider>();
-                col.isTrigger = true;
-                col.radius = 0f;
-
-                rfv = go.AddComponent<ReferenceFrameVolume>();
-                rfv._referenceFrame = new ReferenceFrame(player.GetComponent<OWRigidbody>())
-                {
-                    _autopilotArrivalDistance = 20f,
-                    _maxTargetDistance = 0f,
-                    _useCenterOfMass = false,
-                };
-
-                go.SetActive(true);
-            }
+            if (rfv == null) return null;
             return rfv.GetReferenceFrame();
         }
 
@@ -340,7 +352,30 @@ namespace NeuroPilot
         public override bool ShipIsAt() => false;
 
         public override float GetDistanceToPlayer() => 0f;
-
         public override float GetDistanceToShip() => Vector3.Distance(Locator.GetPlayerBody().GetPosition(), Locator.GetShipBody().GetPosition());
+
+        public override void SetUp()
+        {
+            var player = GameObject.FindGameObjectWithTag("Player");
+
+            var go = new GameObject("RFVolume");
+            go.transform.SetParent(player.transform, false);
+            go.layer = LayerMask.NameToLayer("ReferenceFrameVolume");
+            go.SetActive(false);
+
+            var col = go.AddComponent<SphereCollider>();
+            col.isTrigger = true;
+            col.radius = 0f;
+
+            rfv = go.AddComponent<ReferenceFrameVolume>();
+            rfv._referenceFrame = new ReferenceFrame(player.GetComponent<OWRigidbody>())
+            {
+                _autopilotArrivalDistance = 20f,
+                _maxTargetDistance = 0f,
+                _useCenterOfMass = false,
+            };
+
+            go.SetActive(true);
+        }
     }
 }

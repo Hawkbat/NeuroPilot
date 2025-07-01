@@ -28,6 +28,8 @@ namespace NeuroPilot
         NotificationData taskNotification;
         bool playerHasEnteredShip;
         float stuckTime;
+        readonly List<Destination> possibleObstacles = [];
+        readonly List<Destination> activeObstacles = [];
 
         public static EnhancedAutoPilot GetInstance()
         {
@@ -56,6 +58,9 @@ namespace NeuroPilot
         public bool IsTakingOff() => GetCurrentTask() is TakeOffTask;
         public bool IsLanding() => GetCurrentTask() is LandingTask;
         public bool IsEvading() => GetCurrentTask() is EvadeTask;
+
+        public IEnumerable<Destination> GetPossibleObstacles() => possibleObstacles;
+        public IEnumerable<Destination> GetActiveObstacles() => activeObstacles;
 
         protected void Awake()
         {
@@ -182,6 +187,9 @@ namespace NeuroPilot
                     CompleteTask();
                 }
             }
+
+            UpdateObstacles();
+
             cockpitController._thrustController.enabled = !cockpitController._shipSystemFailure;
             cockpitController._thrustController._shipAlignment.enabled = IsTraveling() || IsTakingOff() || IsLanding();
             cockpitController._thrustController._shipAlignment._localAlignmentAxis = IsTraveling() ? Vector3.forward : Vector3.down;
@@ -361,6 +369,96 @@ namespace NeuroPilot
             return true;
         }
 
+        private void UpdateObstacles()
+        {
+            if (!IsTraveling())
+            {
+                possibleObstacles.Clear();
+                activeObstacles.Clear();
+                return;
+            }
+
+            var currentDestination = GetCurrentDestination();
+            var currentLocation = GetCurrentLocation();
+            var start = cockpitController._shipBody.GetPosition();
+            var end = currentDestination?.GetReferenceFrame()?.GetPosition() ?? start;
+
+            foreach (var d in Destinations.GetAll())
+            {
+                if (d == currentDestination || d == currentLocation || d.GetReferenceFrame() == null || d is ShipDestination)
+                {
+                    if (possibleObstacles.Contains(d))
+                    {
+                        OnAutopilotMessage.Invoke($"{d} is no longer a potential obstacle on the current travel path.");
+                        possibleObstacles.Remove(d);
+                    }
+                    if (activeObstacles.Contains(d))
+                    {
+                        OnAutopilotMessage.Invoke($"{d} is no longer an active obstacle on the current travel path.");
+                        activeObstacles.Remove(d);
+                    }
+                    continue;
+                }
+
+                Vector3 nearestPoint;
+                var pos = d.GetReferenceFrame().GetPosition();
+                if (Vector3.Dot(end - start, pos - start) <= 0f)
+                {
+                    nearestPoint = start;
+                }
+                else if (Vector3.Dot(start - end, pos - end) <= 0f)
+                {
+                    nearestPoint = end;
+                }
+                else
+                {
+                    var dir = (end - start).normalized;
+                    var t = Vector3.Dot(pos - start, dir);
+                    nearestPoint = start + t * dir;
+                }
+
+                var distanceToPath = Vector3.Distance(nearestPoint, pos);
+                if (distanceToPath < d.GetInnerRadius())
+                {
+                    if (possibleObstacles.Contains(d))
+                    {
+                        possibleObstacles.Remove(d);
+                    }
+                    if (!activeObstacles.Contains(d))
+                    {
+                        OnAutopilotMessage.Invoke($"{d} is now an active obstacle on the current travel path.");
+                        activeObstacles.Add(d);
+                    }
+                }
+                else if (distanceToPath < d.GetOuterRadius())
+                {
+                    if (activeObstacles.Contains(d))
+                    {
+                        OnAutopilotMessage.Invoke($"{d} is no longer an active obstacle on the current travel path.");
+                        activeObstacles.Remove(d);
+                    }
+                    if (!possibleObstacles.Contains(d))
+                    {
+                        OnAutopilotMessage.Invoke($"{d} is a potential obstacle on the current travel path.");
+                        possibleObstacles.Add(d);
+                    }
+                }
+                else
+                {
+                    if (possibleObstacles.Contains(d))
+                    {
+                        OnAutopilotMessage.Invoke($"{d} is no longer a potential obstacle on the current travel path.");
+                        possibleObstacles.Remove(d);
+                    }
+                    if (activeObstacles.Contains(d))
+                    {
+                        OnAutopilotMessage.Invoke($"{d} is no longer an active obstacle on the current travel path.");
+                        activeObstacles.Remove(d);
+                    }
+                }
+            }
+        }
+
         private void AcceptTask(AutoPilotTask task)
         {
             if (taskQueue.Count > 0) AbortTask();
@@ -387,9 +485,16 @@ namespace NeuroPilot
             }
         }
 
+        bool autopilotAbortDebounce;
+
         private void AbortTask()
         {
-            if (autopilot.IsFlyingToDestination()) autopilot.Abort();
+            if (!autopilotAbortDebounce && autopilot.IsFlyingToDestination())
+            {
+                autopilotAbortDebounce = true;
+                autopilot.Abort();
+                autopilotAbortDebounce = false;
+            }
 
             taskQueue.Clear();
             if (taskNotification != null)

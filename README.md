@@ -26,5 +26,5 @@ It's not as complicated as it looks, I promise!
 - Hawkbar: Mod development and implementation
 
 Special Thanks:
-- Vedal: Creator of Neuro-sama
+- Vedal987: Creator of Neuro-sama
 - Alexvoid: Creator of the Neuro Game SDK
