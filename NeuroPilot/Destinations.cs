@@ -16,8 +16,8 @@ namespace NeuroPilot
             new StrangerDestination("The Stranger (Light Side Docking Bay)", "RingWorld_Body/Sector_RingWorld/Volumes_RingWorld/RFVolume_IP_LightSideDockingBay", true, 200f, 300f),
 
             new FloatingDestination("The Sun", "Sun_Body/RFVolume_SUN", 3000f, 4000f),
-            new FloatingDestination("Sun Station (Warp Module)", "SunStation_Body/Sector_SunStation/Sector_WarpModule/Volumes_WarpModule/RFVolume", 50f, 150f),
-            new FloatingDestination("Sun Station (Control Module)", "SunStation_Body/Sector_SunStation/Sector_ControlModule/Volumes/RFVolume", 50f, 150f),
+            new SunStationDestination("Sun Station (Warp Module)", "SunStation_Body/Sector_SunStation/Sector_WarpModule/Volumes_WarpModule/RFVolume", 50f, 150f),
+            new SunStationDestination("Sun Station (Control Module)", "SunStation_Body/Sector_SunStation/Sector_ControlModule/Volumes/RFVolume", 50f, 150f),
 
             new PlanetoidDestination("Ash Twin", "TowerTwin_Body/Volumes_TowerTwin/RFVolume", 380f, 600f),
             new PlanetoidDestination("Ember Twin", "CaveTwin_Body/Volumes_CaveTwin/RFVolume", 380f, 600f),
@@ -179,18 +179,42 @@ namespace NeuroPilot
         public override bool CanLand() => true;
     }
 
+    public class SunStationDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
+    {
+        public override string GetName()
+        {
+            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("S_SUNSTATION").GetState() == ShipLogEntry.State.Hidden)
+            {
+                return "Object orbiting the sun";
+            }
+            return name;
+        }
+
+        public override bool IsAvailable(out string reason)
+        {
+            if (!base.IsAvailable(out reason)) return false;
+
+            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("S_SUNSTATION").GetState() == ShipLogEntry.State.Hidden)
+            {
+                reason = "Sun Station has not been visited yet.";
+                return false;
+            }
+            return true;
+        }
+    }
+
     public class QuantumMoonDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
         public override string GetName()
         {
             if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("QUANTUM_MOON").GetState() == ShipLogEntry.State.Hidden)
             {
-                return "Round white moon";
+                return "Round white cloudy moon";
             }
             return $"The Quantum Moon";
         }
 
-        public override bool CanLand() => false;
+        public override bool CanLand() => true;
     }
 
     public class StrangerDestination(string name, string path, bool lightSide, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
