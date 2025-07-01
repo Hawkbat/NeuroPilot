@@ -41,7 +41,8 @@ namespace NeuroPilot
 
             if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NEURO_SDK_WS_URL")))
             {
-                ModHelper.MenuHelper.PopupMenuManager.CreateInfoPopup("Neuro API URL was not set. Either set the NEURO_SDK_WS_URL environment variable or set the Neuro API URL in the mod settings.", "OK").Activate();
+                ModHelper.Console.WriteLine($"Neuro API URL was not set. Either set the NEURO_SDK_WS_URL environment variable or set the Neuro API URL in the mod settings.", MessageType.Error);
+                //ModHelper.MenuHelper.PopupMenuManager.CreateInfoPopup("Neuro API URL was not set. Either set the NEURO_SDK_WS_URL environment variable or set the Neuro API URL in the mod settings.", "OK").Activate();
             }
 
             OnCompleteSceneLoad(OWScene.TitleScreen, OWScene.TitleScreen);
