@@ -45,6 +45,14 @@ namespace NeuroPilot
             LoadManager.OnCompleteSceneLoad += OnCompleteSceneLoad;
         }
 
+        protected void Update()
+        {
+            var autopilotAvailable = LoadManager.GetCurrentScene() == OWScene.SolarSystem && EnhancedAutoPilot.GetInstance() != null && EnhancedAutoPilot.GetInstance().IsAutopilotAvailable();
+
+            if (autopilotAvailable) SetUpActions();
+            else CleanUpActions();
+        }
+
         public override void Configure(IModConfig config)
         {
             debugMode = config.GetSettingsValue<bool>("Debug Mode");
@@ -89,6 +97,7 @@ namespace NeuroPilot
                 ];
 
                 NeuroActionHandler.RegisterActions(neuroActions);
+                Context.Send("Autopilot control is now available.");
                 ModHelper.Console.WriteLine($"Registered {neuroActions.Length} neuro actions.");
             }
         }
@@ -98,6 +107,7 @@ namespace NeuroPilot
             if (neuroActions != null)
             {
                 NeuroActionHandler.UnregisterActions(neuroActions);
+                Context.Send("There is a problem with the AI. Autopilot control is not available.");
                 ModHelper.Console.WriteLine($"Unregistered {neuroActions.Length} neuro actions.");
                 neuroActions = null;
             }
@@ -118,6 +128,8 @@ namespace NeuroPilot
             GUILayout.BeginVertical();
 
             GUILayout.Space(20f);
+
+            GUILayout.Label($"Neuro Actions Active: {neuroActions != null}");
 
             GUILayout.Label($"Player Location: {Destinations.GetPlayerLocation()?.GetName() ?? "Outer Space"}");
             GUILayout.Label($"Ship Location: {Destinations.GetShipLocation()?.GetName() ?? "Outer Space"}");

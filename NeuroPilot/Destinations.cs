@@ -23,7 +23,7 @@ namespace NeuroPilot
             new PlanetoidDestination("Ember Twin", "CaveTwin_Body/Volumes_CaveTwin/RFVolume", 380f, 600f),
 
             new PlanetoidDestination("Timber Hearth", "TimberHearth_Body/RFVolume_TH", 400f, 700f),
-            new PlanetoidDestination("The Attlerock", "Moon_Body/RFVolume_THM", 130f, 300f),
+            new PlanetoidDestination("The Attlerock", "Moon_Body/RFVolume_THM", 130f, 350f),
 
             new PlanetoidDestination("Brittle Hollow", "BrittleHollow_Body/RFVolume_BH", 600f, 900f),
             new FloatingDestination("Hollow's Lantern", "VolcanicMoon_Body/RFVolume_VM", 200f, 500f),
@@ -31,7 +31,7 @@ namespace NeuroPilot
             new PlanetoidDestination("Giant's Deep", "GiantsDeep_Body/RFVolume_GD", 950f, 1500f),
             new FloatingDestination("Orbital Probe Cannon", "OrbitalProbeCannon_Body/RFVolume_OrbitalProbeCannon", 200f, 400f),
             
-            new FloatingDestination("Dark Bramble", "DarkBramble_Body/RFVolume_DB", 950f, 1400f),
+            new FloatingDestination("Dark Bramble", "DarkBramble_Body/RFVolume_DB", 950f, 1700f),
 
             new PlanetoidDestination("The Interloper", "Comet_Body/RFVolume_CO", 300f, 600f),
             new ShuttleDestination("Interloper Shuttle", NomaiShuttleController.ShuttleID.HourglassShuttle, 50f, 100f),

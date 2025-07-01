@@ -62,6 +62,8 @@ namespace NeuroPilot
         public IEnumerable<Destination> GetPossibleObstacles() => possibleObstacles;
         public IEnumerable<Destination> GetActiveObstacles() => activeObstacles;
 
+        public bool IsAutopilotAvailable() => playerHasEnteredShip && !autopilot.IsDamaged() && !cockpitController._shipSystemFailure;
+
         protected void Awake()
         {
             cockpitController = gameObject.GetComponent<ShipCockpitController>();
@@ -357,7 +359,7 @@ namespace NeuroPilot
             }
             if (autopilot.IsDamaged())
             {
-                error = "There is a problem with the AI. Autopilot module is damaged and cannot be engaged until it is repaired manually.";
+                error = "Autopilot module is damaged and cannot be engaged until it is repaired manually.";
                 return false;
             }
             if (autopilot.IsFlyingToDestination())
