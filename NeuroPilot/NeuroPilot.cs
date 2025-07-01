@@ -163,8 +163,16 @@ namespace NeuroPilot
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
             GUI.enabled = true;
-
-            GUILayout.Space(20f);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Open Hatch") && autopilot.TryControlHatch(true, out error)) { }
+            if (GUILayout.Button("Close Hatch") && autopilot.TryControlHatch(false, out error)) { }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Headlights On") && autopilot.TryControlHeadlights(true, out error)) { }
+            if (GUILayout.Button("Headlights Off") && autopilot.TryControlHeadlights(false, out error)) { }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
 
             foreach (var dest in Destinations.GetAll())
             {

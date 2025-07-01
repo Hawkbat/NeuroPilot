@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Cysharp.Threading.Tasks;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -23,6 +24,7 @@ namespace NeuroPilot
         ShipCockpitController cockpitController;
         Autopilot autopilot;
         SectorDetector shipSectorDetector;
+        HatchController hatchController;
 
         readonly Queue<AutoPilotTask> taskQueue = new();
         NotificationData taskNotification;
@@ -69,6 +71,7 @@ namespace NeuroPilot
             cockpitController = gameObject.GetComponent<ShipCockpitController>();
             autopilot = cockpitController._autopilot;
             shipSectorDetector = transform.root.GetComponentInChildren<SectorDetector>();
+            hatchController = transform.root.GetComponentInChildren<HatchController>();
 
             autopilot.OnInitFlyToDestination += Autopilot_OnInitFlyToDestination;
             autopilot.OnInitMatchVelocity += Autopilot_OnInitMatchVelocity;
@@ -330,8 +333,49 @@ namespace NeuroPilot
             return true;
         }
 
+        public bool TryControlHeadlights(bool on, out string error)
+        {
+            if (cockpitController._shipSystemFailure)
+            {
+                error = "Cannot control ship headlights while the ship is damaged.";
+                return false;
+            }
+
+            if (cockpitController._externalLightsOn == on)
+            {
+                error = $"Ship headlights are already {(on ? "on" : "off")}.";
+                return false;
+            }
+
+            cockpitController._externalLightsOn = on;
+            cockpitController.SetEnableShipLights(on);
+
+            error = string.Empty;
+            return true;
+        }
+
+        public bool TryControlHatch(bool open, out string error)
+        {
+            if (cockpitController._shipSystemFailure)
+            {
+                error = "Cannot control ship hatch while the ship is damaged.";
+                return false;
+            }
+
+            if (open) hatchController.OpenHatch();
+            else hatchController.CloseHatch();
+
+            error = string.Empty;
+            return true;
+        }
+
         public string GetAutopilotStatus()
         {
+            if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
+            {
+                return "Autopilot is not available. The manual override has been engaged by the pilot.";
+            }
+
             if (!playerHasEnteredShip)
             {
                 return "Autopilot is not available. The ship has not been powered on yet.";
@@ -354,7 +398,7 @@ namespace NeuroPilot
         {
             if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
             {
-                error = "Autopilot cannot be engaged while the manual override is active.";
+                error = "Autopilot cannot be engaged while the manual override is active and someone is actively piloting.";
                 return false;
             }
             if (!playerHasEnteredShip)

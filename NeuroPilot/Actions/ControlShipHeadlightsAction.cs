@@ -46,10 +46,9 @@ namespace NeuroPilot.Actions
                 return ExecutionResult.Failure("Ship headlights can only be controlled while in-game.");
             }
 
-            var cockpitController = Locator.GetShipTransform().GetComponentInChildren<ShipCockpitController>();
-            if (cockpitController._shipSystemFailure)
+            if (!EnhancedAutoPilot.GetInstance().TryControlHeadlights(on, out var error))
             {
-                return ExecutionResult.Failure("Cannot control ship headlights while the ship is damaged.");
+                return ExecutionResult.Failure(error);
             }
 
             return ExecutionResult.Success();
@@ -57,20 +56,7 @@ namespace NeuroPilot.Actions
 
         protected override UniTask ExecuteAsync(bool on)
         {
-            var cockpitController = Locator.GetShipTransform().GetComponentInChildren<ShipCockpitController>();
-
-            if (cockpitController._shipSystemFailure)
-            {
-                // If the ship is damaged, we cannot control the headlights. Silent failure.
-                return UniTask.CompletedTask;
-            }
-
-            if (cockpitController._externalLightsOn != on)
-            {
-                cockpitController._externalLightsOn = on;
-                cockpitController.SetEnableShipLights(on);
-            }
-
+            // Action was executed in Validate instead. Technically incorrect but reduces latency and allows for direct feedback.
             return UniTask.CompletedTask;
         }
     }

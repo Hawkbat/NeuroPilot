@@ -46,14 +46,17 @@ namespace NeuroPilot.Actions
                 return ExecutionResult.Failure("Ship hatch can only be opened or closed while in-game.");
             }
 
+            if (!EnhancedAutoPilot.GetInstance().TryControlHatch(open, out var error))
+            {
+                return ExecutionResult.Failure(error);
+            }
+
             return ExecutionResult.Success();
         }
 
         protected override UniTask ExecuteAsync(bool open)
         {
-            var hatchController = Locator.GetShipTransform().GetComponentInChildren<HatchController>();
-            if (open) hatchController.OpenHatch();
-            else hatchController.CloseHatch();
+            // Action was executed in Validate instead. Technically incorrect but reduces latency and allows for direct feedback.
             return UniTask.CompletedTask;
         }
     }
