@@ -1,4 +1,5 @@
-﻿using System;
+﻿using OWML.Common;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -54,8 +55,7 @@ namespace NeuroPilot
         public static IEnumerable<string> GetAllNames() => destinations.Select(d => d.GetName());
         public static IEnumerable<string> GetAllValidNames() => GetAllValid().Select(d => d.GetName());
 
-        public static Destination GetByName(string name)
-            => GetAllValid().Concat(GetAll()).FirstOrDefault(d => d.GetName().Equals(name, StringComparison.OrdinalIgnoreCase));
+        public static Destination GetByName(string name) => GetAll().FirstOrDefault(d => d.GetName().Equals(name, StringComparison.OrdinalIgnoreCase));
 
         public static Destination GetByReferenceFrame(ReferenceFrame rf)
         {
@@ -152,20 +152,22 @@ namespace NeuroPilot
             var go = GameObject.Find(parts[0]);
             if (go == null)
             {
-                throw new Exception($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[0]}");
+                NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[0]}", MessageType.Error);
+                return;
             }
             for (var i = 1; i < parts.Length; i++)
             {
                 var t = go.transform.Find(parts[i]);
                 if (t == null)
                 {
-                    throw new Exception($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[i]}");
+                    NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[i]}", MessageType.Error);
+                    return;
                 }
                 go = t.gameObject;
             }
 
             rfv = go.GetComponent<ReferenceFrameVolume>();
-            if (!rfv) throw new Exception($"Destination '{name}' at path '{path}' does not have a ReferenceFrameVolume component.");
+            if (!rfv) NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not have a ReferenceFrameVolume component.", MessageType.Error);
         }
     }
 
@@ -188,18 +190,6 @@ namespace NeuroPilot
                 return "Object orbiting the sun";
             }
             return name;
-        }
-
-        public override bool IsAvailable(out string reason)
-        {
-            if (!base.IsAvailable(out reason)) return false;
-
-            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("S_SUNSTATION").GetState() == ShipLogEntry.State.Hidden)
-            {
-                reason = "Sun Station has not been visited yet.";
-                return false;
-            }
-            return true;
         }
     }
 
@@ -245,11 +235,11 @@ namespace NeuroPilot
             }
 
             var eclipseDot = Vector3.Dot((sun.position - ship.position).normalized, (ringWorld.position - ship.position).normalized);
-
+           
             // If we have not discovered the Stranger yet, check if the ship is near the map satellite and the eclipse is visible
             if (!Locator.GetShipLogManager() || !Locator.GetShipLogManager().IsFactRevealed("IP_RING_WORLD_X1"))
             {
-                var mapSatellite = Locator.GetAstroObject(AstroObject.Name.MapSatellite).transform;
+                var mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
                 var mapSatelliteDistance = Vector3.Distance(ship.position, mapSatellite.position);
                 var isEclipseVisible = eclipseDot > 0.99f;
                 var isNearMapSatellite = mapSatelliteDistance < 100f;

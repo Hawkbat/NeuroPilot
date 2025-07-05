@@ -1,6 +1,7 @@
 ﻿using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -148,12 +149,7 @@ namespace NeuroPilot
             }
             if (currentTask is LandingTask landTask)
             {
-                if (GetCurrentLocationReferenceFrame() != landTask.location)
-                {
-                    OnAutopilotMessage.Invoke("Autopilot has aborted landing because the ship is no longer at the intended landing location.");
-                    AbortTask();
-                }
-                else if (cockpitController._landingManager.IsLanded())
+                if (cockpitController._landingManager.IsLanded())
                 {
                     OnAutopilotMessage.Invoke("Autopilot has successfully landed at the current location.");
                     CompleteTask();
@@ -186,7 +182,7 @@ namespace NeuroPilot
                     OnAutopilotMessage.Invoke($"Autopilot failed to engage travel to destination '{travelTask.destination}'.");
                     AbortTask();
                 }
-                if (Locator.GetCloakFieldController().isShipInsideCloak)
+                if (EntitlementsManager.IsDlcOwned() == EntitlementsManager.AsyncOwnershipStatus.Owned && Locator.GetCloakFieldController().isShipInsideCloak)
                 {
                     OnAutopilotMessage.Invoke("Autopilot has aborted travel because the ship has entered a cloaking field.");
                     CompleteTask();
@@ -196,7 +192,7 @@ namespace NeuroPilot
             UpdateObstacles();
 
             cockpitController._thrustController.enabled = !cockpitController._shipSystemFailure;
-            cockpitController._thrustController._shipAlignment.enabled = IsTraveling() || IsTakingOff() || IsLanding();
+            cockpitController._thrustController._shipAlignment.enabled = /*IsTraveling() ||*/ IsTakingOff() || IsLanding();
             cockpitController._thrustController._shipAlignment._localAlignmentAxis = IsTraveling() ? Vector3.forward : Vector3.down;
         }
 
@@ -409,11 +405,6 @@ namespace NeuroPilot
             if (autopilot.IsDamaged())
             {
                 error = "Autopilot module is damaged and cannot be engaged until it is repaired manually.";
-                return false;
-            }
-            if (autopilot.IsFlyingToDestination())
-            {
-                error = $"Autopilot is already engaged to travel to '{GetCurrentDestinationName()}'. Please abort the current travel first.";
                 return false;
             }
             error = string.Empty;

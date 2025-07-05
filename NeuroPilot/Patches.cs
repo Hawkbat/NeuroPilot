@@ -116,7 +116,7 @@ namespace NeuroPilot
             else
             {
                 __instance._playerAttachOffset = __instance._thrusterModel.GetLocalAcceleration() / __instance._thrusterModel.GetMaxTranslationalThrust() * -0.2f;
-                if (Locator.GetToolModeSwapper().GetToolMode() == ToolMode.None && OWInput.IsNewlyPressed(InputLibrary.cancel, InputMode.All))
+                if (OWInput.IsInputMode(InputMode.ShipCockpit | InputMode.LandingCam) && Locator.GetToolModeSwapper().GetToolMode() == ToolMode.None && OWInput.IsNewlyPressed(InputLibrary.cancel, InputMode.All))
                 {
                     __instance.ExitFlightConsole();
                 }
@@ -157,7 +157,17 @@ namespace NeuroPilot
 
             if (autopilot.IsTakingOff() || autopilot.IsLanding())
             {
-                var rf = EnhancedAutoPilot.GetInstance().GetCurrentLocationReferenceFrame();
+                var task = EnhancedAutoPilot.GetInstance().GetCurrentTask();
+                ReferenceFrame rf = null;
+
+                if (task is LandingTask landingTask)
+                {
+                    rf = landingTask.location;
+                }
+                else if (task is TakeOffTask takeOffTask)
+                {
+                    rf = takeOffTask.location;
+                }
                 if (rf != null)
                 {
                     __result = rf.GetPosition() - __instance._owRigidbody.GetWorldCenterOfMass();
@@ -226,7 +236,7 @@ namespace NeuroPilot
             if (loc != null)
             {
                 // Allow the player to control the ship while within the current location's inner radius plus a fudge factor in case autopilot undershot
-                if (loc.GetDistanceToShip() < loc.GetInnerRadius() + 100f)
+                if (loc.GetDistanceToShip() < loc.GetReferenceFrame().GetAutopilotArrivalDistance() + 100f)
                 {
                     return true;
                 }
