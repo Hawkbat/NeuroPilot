@@ -55,7 +55,8 @@ namespace NeuroPilot
         public static IEnumerable<string> GetAllNames() => destinations.Select(d => d.GetName());
         public static IEnumerable<string> GetAllValidNames() => GetAllValid().Select(d => d.GetName());
 
-        public static Destination GetByName(string name) => GetAll().FirstOrDefault(d => d.GetName().Equals(name, StringComparison.OrdinalIgnoreCase));
+        public static Destination GetByName(string name)
+            => GetAllValid().Concat(GetAll()).FirstOrDefault(d => d.GetName().Equals(name, StringComparison.OrdinalIgnoreCase));
 
         public static Destination GetByReferenceFrame(ReferenceFrame rf)
         {
