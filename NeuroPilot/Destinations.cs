@@ -183,7 +183,7 @@ namespace NeuroPilot
         public override bool IsAvailable(out string reason)
         {
             if (!base.IsAvailable(out reason)) return false;
-            if (GetDistanceToShip() > 50_000f)
+            if (Locator.GetShipBody() != null && GetDistanceToShip() > 50_000f)
             {
                 reason = "Probe is too far.";
                 return false;
