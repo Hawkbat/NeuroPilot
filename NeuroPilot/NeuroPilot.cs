@@ -70,6 +70,12 @@ namespace NeuroPilot
 
         protected void OnCompleteSceneLoad(OWScene previousScene, OWScene newScene)
         {
+            var probeBody = GameObject.Find("NomaiProbe_Body");
+            if (probeBody != null) AddReferenceFrame(probeBody, 300, 5, 15000f);
+            else
+            {
+                ModHelper.Console.WriteLine("NomaiProbe_Body not found!", MessageType.Error);
+            }
             if (newScene != OWScene.SolarSystem)
             {
                 CleanUpActions();
@@ -85,6 +91,47 @@ namespace NeuroPilot
             });
 
             SetUpActions();
+        }
+
+        public static ReferenceFrameVolume AddReferenceFrame(GameObject obj, float radius, float minTargetRadius, float maxTargetRadius)
+        {
+            obj.GetAttachedOWRigidbody().SetIsTargetable(false);
+            var go = new GameObject("RFVolume");
+            go.transform.parent = obj.transform;
+            go.transform.localPosition = Vector3.zero;
+            go.layer = LayerMask.NameToLayer("ReferenceFrameVolume");
+            go.SetActive(false);
+
+            var col = go.AddComponent<SphereCollider>();
+            col.isTrigger = true;
+            col.radius = radius;
+            var rf = new ReferenceFrame(obj.GetAttachedOWRigidbody())
+            {
+                _minSuitTargetDistance = minTargetRadius,
+                _maxTargetDistance = maxTargetRadius,
+                _autopilotArrivalDistance = radius,
+                _autoAlignmentDistance = radius * 0.75f,
+                _hideLandingModePrompt = false,
+                _matchAngularVelocity = true,
+                _minMatchAngularVelocityDistance = 70,
+                _maxMatchAngularVelocityDistance = 400,
+                _bracketsRadius = radius * 0.5f
+            };
+
+            var rfv = go.AddComponent<ReferenceFrameVolume>();
+            rfv._referenceFrame = rf;
+            rfv._minColliderRadius = minTargetRadius;
+            rfv._maxColliderRadius = radius;
+            rfv._isPrimaryVolume = false;
+            rfv._isCloseRangeVolume = false;
+
+            rf._useCenterOfMass = false;
+            rf._localPosition = Vector3.zero;
+            go.transform.localPosition = Vector3.zero;
+
+            go.SetActive(true);
+
+            return rfv;
         }
 
         void SetUpActions()

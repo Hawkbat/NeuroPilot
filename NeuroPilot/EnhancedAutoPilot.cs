@@ -73,11 +73,6 @@ namespace NeuroPilot
             autopilot = cockpitController._autopilot;
             shipSectorDetector = transform.root.GetComponentInChildren<SectorDetector>();
             hatchController = transform.root.GetComponentInChildren<HatchController>();
-
-            autopilot.OnInitFlyToDestination += Autopilot_OnInitFlyToDestination;
-            autopilot.OnInitMatchVelocity += Autopilot_OnInitMatchVelocity;
-            autopilot.OnMatchedVelocity += Autopilot_OnMatchedVelocity;
-            autopilot.OnFireRetroRockets += Autopilot_OnFireRetroRockets;
             autopilot.OnArriveAtDestination += Autopilot_OnArriveAtDestination;
             autopilot.OnAlreadyAtDestination += Autopilot_OnAlreadyAtDestination;
             autopilot.OnAbortAutopilot += Autopilot_OnAbortAutopilot;
@@ -87,10 +82,6 @@ namespace NeuroPilot
 
         protected void OnDestroy()
         {
-            autopilot.OnInitFlyToDestination -= Autopilot_OnInitFlyToDestination;
-            autopilot.OnInitMatchVelocity -= Autopilot_OnInitMatchVelocity;
-            autopilot.OnMatchedVelocity -= Autopilot_OnMatchedVelocity;
-            autopilot.OnFireRetroRockets -= Autopilot_OnFireRetroRockets;
             autopilot.OnArriveAtDestination -= Autopilot_OnArriveAtDestination;
             autopilot.OnAlreadyAtDestination -= Autopilot_OnAlreadyAtDestination;
             autopilot.OnAbortAutopilot -= Autopilot_OnAbortAutopilot;
@@ -114,11 +105,11 @@ namespace NeuroPilot
                     stuckTime += Time.deltaTime;
                     if (stuckTime > STUCK_TIMEOUT)
                     {
+                        stuckTime = 0;
                         if (currentTask is TakeOffTask)
                         {
                             OnAutopilotMessage.Invoke($"Autopilot has aborted because the ship became stuck while trying to take off.");
                             AbortTask();
-
                         }
                         else
                         {
@@ -130,13 +121,6 @@ namespace NeuroPilot
                 else
                 {
                     stuckTime = 0f;
-                }
-            }
-            else
-            {
-                if (cockpitController.InLandingMode())
-                {
-                    cockpitController.ExitLandingMode();
                 }
             }
             if (currentTask is TakeOffTask takeOffTask)
@@ -185,15 +169,15 @@ namespace NeuroPilot
                 if (EntitlementsManager.IsDlcOwned() == EntitlementsManager.AsyncOwnershipStatus.Owned && Locator.GetCloakFieldController().isShipInsideCloak)
                 {
                     OnAutopilotMessage.Invoke("Autopilot has aborted travel because the ship has entered a cloaking field.");
-                    CompleteTask();
+                    AbortTask();
                 }
             }
 
             UpdateObstacles();
 
             cockpitController._thrustController.enabled = !cockpitController._shipSystemFailure;
-            cockpitController._thrustController._shipAlignment.enabled = /*IsTraveling() ||*/ IsTakingOff() || IsLanding();
-            cockpitController._thrustController._shipAlignment._localAlignmentAxis = IsTraveling() ? Vector3.forward : Vector3.down;
+            cockpitController._thrustController._shipAlignment.enabled = IsTakingOff() || IsLanding();
+            cockpitController._thrustController._shipAlignment._localAlignmentAxis = Vector3.down;
         }
 
         public float GetCurrentLandingVelocity()
@@ -522,6 +506,10 @@ namespace NeuroPilot
             }
             if (taskQueue.Count > 0)
             {
+                if (task is TravelTask)
+                {
+                    OnAutopilotMessage.Invoke($"Autopilot engaged to travel to destination: {GetCurrentDestinationName()}.");
+                }
                 taskNotification = new NotificationData(NotificationTarget.All, $"Autopilot Engaged: {GetCurrentTask()}".ToUpper());
                 NotificationManager.SharedInstance.PostNotification(taskNotification, true);
             }
@@ -556,37 +544,28 @@ namespace NeuroPilot
             taskQueue.Dequeue();
             if (taskQueue.Count > 0)
             {
+                if (GetCurrentTask() is TravelTask)
+                {
+                    OnAutopilotMessage.Invoke($"Autopilot engaged to travel to destination: {GetCurrentDestinationName()}.");
+                }
                 taskNotification = new NotificationData(NotificationTarget.All, $"Autopilot Engaged: {GetCurrentTask()}".ToUpper());
                 NotificationManager.SharedInstance.PostNotification(taskNotification, true);
             }
-        }
-
-        private void Autopilot_OnInitFlyToDestination()
-        {
-            OnAutopilotMessage.Invoke($"Autopilot engaged to travel to destination: {GetCurrentDestinationName()}.");
-        }
-
-        private void Autopilot_OnInitMatchVelocity()
-        {
-            OnAutopilotMessage.Invoke($"Autopilot is matching velocity with destination: {GetCurrentDestinationName()}.");
-        }
-
-        private void Autopilot_OnMatchedVelocity()
-        {
-            OnAutopilotMessage.Invoke($"Autopilot has matched velocity with destination: {GetCurrentDestinationName()} and will begin accelerating towards it.");
-        }
-
-        private void Autopilot_OnFireRetroRockets()
-        {
-            OnAutopilotMessage.Invoke($"Autopilot is firing retro rockets to decelerate before arriving at destination: {GetCurrentDestinationName()}.");
         }
 
         private void Autopilot_OnArriveAtDestination(float arrivalError)
         {
             if (arrivalError > 100f)
             {
-                // We effectively *didn't* arrive at the destination if the error is too large; retry
-                AcceptTask(new TravelTask(GetCurrentDestination()));
+                if (GetCurrentDestination() is PlayerDestination && Destinations.GetPlayerLocation() != null)
+                {
+                    AcceptTask(new LandingTask(Destinations.GetPlayerLocation().GetReferenceFrame()));
+                }
+                else
+                {
+                    // We effectively *didn't* arrive at the destination if the error is too large; retry
+                    AcceptTask(new TravelTask(GetCurrentDestination()));
+                }
                 return;
             }
             if (arrivalError > 50f)

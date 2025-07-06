@@ -20,29 +20,30 @@ namespace NeuroPilot
             new SunStationDestination("Sun Station (Warp Module)", "SunStation_Body/Sector_SunStation/Sector_WarpModule/Volumes_WarpModule/RFVolume", 50f, 150f),
             new SunStationDestination("Sun Station (Control Module)", "SunStation_Body/Sector_SunStation/Sector_ControlModule/Volumes/RFVolume", 50f, 150f),
 
-            new PlanetoidDestination("Ash Twin", "TowerTwin_Body/Volumes_TowerTwin/RFVolume", 380f, 600f),
-            new PlanetoidDestination("Ember Twin", "CaveTwin_Body/Volumes_CaveTwin/RFVolume", 380f, 600f),
+            new PlanetoidDestination("Ash Twin", "TowerTwin_Body/Volumes_TowerTwin/RFVolume", 380f, 1000f),
+            new PlanetoidDestination("Ember Twin", "CaveTwin_Body/Volumes_CaveTwin/RFVolume", 380f, 1000f),
 
-            new PlanetoidDestination("Timber Hearth", "TimberHearth_Body/RFVolume_TH", 400f, 700f),
+            new PlanetoidDestination("Timber Hearth", "TimberHearth_Body/RFVolume_TH", 400f, 1000f),
             new PlanetoidDestination("The Attlerock", "Moon_Body/RFVolume_THM", 130f, 350f),
 
-            new PlanetoidDestination("Brittle Hollow", "BrittleHollow_Body/RFVolume_BH", 600f, 900f),
+            new PlanetoidDestination("Brittle Hollow", "BrittleHollow_Body/RFVolume_BH", 600f, 1000f),
             new FloatingDestination("Hollow's Lantern", "VolcanicMoon_Body/RFVolume_VM", 200f, 500f),
 
-            new PlanetoidDestination("Giant's Deep", "GiantsDeep_Body/RFVolume_GD", 950f, 1500f),
+            new PlanetoidDestination("Giant's Deep", "GiantsDeep_Body/RFVolume_GD", 950f, 2500f),
             new FloatingDestination("Orbital Probe Cannon", "OrbitalProbeCannon_Body/RFVolume_OrbitalProbeCannon", 200f, 400f),
-            
-            new FloatingDestination("Dark Bramble", "DarkBramble_Body/RFVolume_DB", 950f, 1700f),
+            new ProbeDestination("Probe", "NomaiProbe_Body/RFVolume", 100f, 500f),
+
+            new FloatingDestination("Dark Bramble", "DarkBramble_Body/RFVolume_DB", 950f, 1800f),
 
             new PlanetoidDestination("The Interloper", "Comet_Body/RFVolume_CO", 300f, 600f),
-            new ShuttleDestination("Interloper Shuttle", NomaiShuttleController.ShuttleID.HourglassShuttle, 50f, 100f),
+            new ShuttleDestination("Interloper Shuttle", NomaiShuttleController.ShuttleID.HourglassShuttle, 50f, 200f),
             
             new FloatingDestination("White Hole Station", "WhiteholeStation_Body/RFVolume_WhiteholeStation", 100f, 300f),
 
             new FloatingDestination("Hearthian Map Satellite", "HearthianMapSatellite_Body/RFVolume_HMS", 100f, 300f),
 
-            new QuantumMoonDestination("The Quantum Moon", "QuantumMoon_Body/Volumes/RFVolume", 110f, 300f),
-            new ShuttleDestination("Quantum Moon Shuttle", NomaiShuttleController.ShuttleID.BrittleHollowShuttle, 50f, 100f),
+            new QuantumMoonDestination("The Quantum Moon", "QuantumMoon_Body/Volumes/RFVolume", 110f, 500f),
+            new ShuttleDestination("Quantum Moon Shuttle", NomaiShuttleController.ShuttleID.BrittleHollowShuttle, 50f, 200f),
 
             new FloatingDestination("Backer Satellite", "BackerSatellite_Body/RFVolume_BS", 100f, 300f),
             
@@ -177,6 +178,20 @@ namespace NeuroPilot
 
     }
 
+    public class ProbeDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
+    {
+        public override bool IsAvailable(out string reason)
+        {
+            if (!base.IsAvailable(out reason)) return false;
+            if (GetDistanceToShip() > 50_000f)
+            {
+                reason = "Probe is too far.";
+                return false;
+            }
+            return true;
+        }
+    }
+
     public class PlanetoidDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
         public override bool CanLand() => true;
@@ -259,7 +274,7 @@ namespace NeuroPilot
             }
 
             // Only the destination on the same side of the Stranger as the ship is valid
-            var isOnLightSide = eclipseDot < 0f;
+            var isOnLightSide = eclipseDot < 0f || (ship.position - sun.position).magnitude < 11894;
 
             if (isOnLightSide != lightSide)
             {
@@ -287,9 +302,9 @@ namespace NeuroPilot
                 reason = "Shuttle not found.";
                 return false;
             }
-            if (!controller.IsPlayerInside())
+            if (controller._shuttleBody.IsSuspended())
             {
-                reason = "Player is not currently inside the shuttle.";
+                reason = "Shuttle has not yet been recalled.";
                 return false;
             }
             return true;
