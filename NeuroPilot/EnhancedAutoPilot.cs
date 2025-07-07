@@ -1,10 +1,5 @@
-﻿using Cysharp.Threading.Tasks;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -56,6 +51,12 @@ namespace NeuroPilot
 
         public AutoPilotTask GetCurrentTask() => taskQueue.TryPeek(out var task) ? task : null;
         public IEnumerable<AutoPilotTask> GetQueuedTasks() => taskQueue;
+
+        public bool IsManualAllowed() => NeuroPilot.ManualOverride
+            || GetCurrentLocation()?.GetDistanceToShip() < GetCurrentLocation()?.GetReferenceFrame()?.GetAutopilotArrivalDistance() + 100f
+            || GetCurrentLocationReferenceFrame() != null
+            || Locator.GetCloakFieldController().isShipInsideCloak;
+
         public bool IsAutopilotActive() => GetCurrentTask() != null;
         public bool IsTraveling() => GetCurrentTask() is TravelTask;
         public bool IsTakingOff() => GetCurrentTask() is TakeOffTask;
@@ -106,6 +107,7 @@ namespace NeuroPilot
                     if (stuckTime > STUCK_TIMEOUT)
                     {
                         stuckTime = 0;
+
                         if (currentTask is TakeOffTask)
                         {
                             OnAutopilotMessage.Invoke($"Autopilot has aborted because the ship became stuck while trying to take off.");
@@ -428,6 +430,7 @@ namespace NeuroPilot
 
                 Vector3 nearestPoint;
                 var pos = d.GetReferenceFrame().GetPosition();
+                var distanceToObject = Vector3.Distance(pos, start);
                 if (Vector3.Dot(end - start, pos - start) <= 0f)
                 {
                     nearestPoint = start;
@@ -452,7 +455,7 @@ namespace NeuroPilot
                     }
                     if (!activeObstacles.Contains(d))
                     {
-                        OnAutopilotMessage.Invoke($"{d} is now an active obstacle on the current travel path.");
+                        OnAutopilotMessage.Invoke($"{d} is now an active obstacle on the current travel path, {distanceToObject:F2} meters away.");
                         activeObstacles.Add(d);
                     }
                 }
@@ -465,7 +468,7 @@ namespace NeuroPilot
                     }
                     if (!possibleObstacles.Contains(d))
                     {
-                        OnAutopilotMessage.Invoke($"{d} is a potential obstacle on the current travel path.");
+                        OnAutopilotMessage.Invoke($"{d} is a potential obstacle on the current travel path, {distanceToObject:F2} meters away.");
                         possibleObstacles.Add(d);
                     }
                 }
@@ -504,12 +507,14 @@ namespace NeuroPilot
             {
                 taskQueue.Enqueue(task);
             }
+            RunTask();
+        }
+
+        private void RunTask()
+        {
             if (taskQueue.Count > 0)
             {
-                if (task is TravelTask)
-                {
-                    OnAutopilotMessage.Invoke($"Autopilot engaged to travel to destination: {GetCurrentDestinationName()}.");
-                }
+                OnAutopilotMessage.Invoke(GetCurrentTask().ToString());
                 taskNotification = new NotificationData(NotificationTarget.All, $"Autopilot Engaged: {GetCurrentTask()}".ToUpper());
                 NotificationManager.SharedInstance.PostNotification(taskNotification, true);
             }
@@ -542,15 +547,7 @@ namespace NeuroPilot
                 taskNotification = null;
             }
             taskQueue.Dequeue();
-            if (taskQueue.Count > 0)
-            {
-                if (GetCurrentTask() is TravelTask)
-                {
-                    OnAutopilotMessage.Invoke($"Autopilot engaged to travel to destination: {GetCurrentDestinationName()}.");
-                }
-                taskNotification = new NotificationData(NotificationTarget.All, $"Autopilot Engaged: {GetCurrentTask()}".ToUpper());
-                NotificationManager.SharedInstance.PostNotification(taskNotification, true);
-            }
+            RunTask();
         }
 
         private void Autopilot_OnArriveAtDestination(float arrivalError)

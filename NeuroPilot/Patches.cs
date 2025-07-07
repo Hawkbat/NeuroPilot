@@ -1,9 +1,4 @@
 ﻿using HarmonyLib;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace NeuroPilot
@@ -65,6 +60,9 @@ namespace NeuroPilot
                     return false;
                 __instance.CompleteExitFlightConsole();
             }
+            else {
+                __instance._playerAttachPoint.transform.localPosition = Vector3.Lerp(__instance._raisedAttachPointLocalPos, __instance._origAttachPointLocalPos, Mathf.InverseLerp(__instance._enterFlightConsoleTime, __instance._enterFlightConsoleTime + 0.4f, Time.time));
+            }
             return false;
         }
 
@@ -79,6 +77,7 @@ namespace NeuroPilot
                 // If manual override is enabled and player is piloting, allow the original Update method to run and give full control
                 return true;
             }
+            var autopilot = EnhancedAutoPilot.GetInstance();
 
             if (!__instance._playerAtFlightConsole)
             {
@@ -102,8 +101,7 @@ namespace NeuroPilot
             }
             if (!__instance._autopilot.IsFlyingToDestination())
             {
-                var loc = EnhancedAutoPilot.GetInstance().GetCurrentLocation();
-                if (NeuroPilot.ManualOverride || loc != null && ((loc.GetDistanceToShip() < loc.GetReferenceFrame().GetAutopilotArrivalDistance() + 100f) || Locator.GetCloakFieldController().isShipInsideCloak))
+                if (autopilot.IsManualAllowed())
                 {
                     if (__instance.IsMatchVelocityAvailable(false) && OWInput.IsNewlyPressed(InputLibrary.matchVelocity, InputMode.All))
                     {
@@ -132,12 +130,11 @@ namespace NeuroPilot
                     {
                         __instance.UpdateEnterLandingCamTransition();
                     }
-                    var loc = EnhancedAutoPilot.GetInstance().GetCurrentLocation();
-                    if (!__instance._isLandingMode && __instance.IsLandingModeAvailable() && (NeuroPilot.ManualOverride || loc != null && ((loc.GetDistanceToShip() < loc.GetReferenceFrame().GetAutopilotArrivalDistance() + 100f) || Locator.GetCloakFieldController().isShipInsideCloak)))
+                    if (!__instance._isLandingMode && __instance.IsLandingModeAvailable() && autopilot.IsManualAllowed())
                     {
                         __instance.EnterLandingMode();
                     }
-                    else if (__instance._isLandingMode && (!__instance.IsLandingModeAvailable() || !(NeuroPilot.ManualOverride || loc != null && ((loc.GetDistanceToShip() < loc.GetReferenceFrame().GetAutopilotArrivalDistance() + 100f) || Locator.GetCloakFieldController().isShipInsideCloak))))
+                    else if (__instance._isLandingMode && (!__instance.IsLandingModeAvailable() || !autopilot.IsManualAllowed()))
                     {
                         __instance.ExitLandingMode();
                     }
@@ -157,38 +154,15 @@ namespace NeuroPilot
             return false;
         }
 
-        [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.EnterLandingView))]
-        public static bool ShipCockpitController_EnterLandingView(ShipCockpitController __instance)
+        [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.IsLandingModeAvailable))]
+        public static bool ShipCockpitController_IsLandingModeAvailable(ShipCockpitController __instance, ref bool __result)
         {
-            __instance._enteringLandingCam = true;
-            __instance._initLandingCamTime = Time.time;
-            __instance._playerCamController.SnapToDegreesOverSeconds(0.0f, -48.5f, 0.5f, true);
-            __instance._playerCamController.SnapToFieldOfView(24f, 0.5f, true);
-            __instance._usingLandingCam = true;
-            if (__instance._landingCam.mode == LandingCamera.Mode.Double)
-                __instance._landingCam.enabled = true;
-            if (__instance._externalLightsOn)
+            if (!EnhancedAutoPilot.GetInstance().IsManualAllowed())
             {
-                __instance._headlight.SetOn(false);
-                __instance._landingLight.SetOn(true);
+                __result = false;
+                return false;
             }
-            var loc = EnhancedAutoPilot.GetInstance().GetCurrentLocation();
-            if (__instance.IsLandingModeAvailable() && (NeuroPilot.ManualOverride || (loc != null && (loc.GetDistanceToShip() < loc.GetReferenceFrame().GetAutopilotArrivalDistance() + 100f) || Locator.GetCloakFieldController().isShipInsideCloak)))
-            {
-                __instance.EnterLandingMode();
-                __instance._autopilot.StartMatchVelocity(Locator.GetReferenceFrame());
-            }
-            if (__instance._landingCamComponent.isDamaged)
-            {
-                __instance._shipAudioController.PlayLandingCamOn(AudioType.ShipCockpitLandingCamStatic_LP);
-                __instance._shipAudioController.PlayLandingCamStatic(0.25f);
-            }
-            else
-            {
-                __instance._shipAudioController.PlayLandingCamOn(AudioType.ShipCockpitLandingCamAmbient_LP);
-                __instance._shipAudioController.PlayLandingCamAmbient(0.25f);
-            }
-            return false;
+            return true;
         }
 
         [HarmonyPostfix, HarmonyPatch(typeof(ShipPromptController), nameof(ShipPromptController.Update))]
@@ -291,7 +265,7 @@ namespace NeuroPilot
                         unclampedThrust = __instance._shipBody.transform.InverseTransformDirection((rfv.GetVelocity() - __instance._shipBody.GetVelocity()) * .5f);
                     }
 
-                    var downThrust = (targetVelocity - currentVelocity) / smoothingRange * 1;
+                    var downThrust = (targetVelocity - currentVelocity) / smoothingRange;
                     unclampedThrust.y = downThrust;
                     var thrust = Vector3.ClampMagnitude(unclampedThrust, 1f);
                     __result = thrust;
@@ -310,27 +284,14 @@ namespace NeuroPilot
                 }
             }
 
-            var loc = autopilot.GetCurrentLocation();
-            if (loc != null)
+            // Allow the player to control the ship while within the current location's inner radius plus a fudge factor in case autopilot undershot
+            if (autopilot.IsManualAllowed())
+                return true;
+            else
             {
-                // Allow the player to control the ship while within the current location's inner radius plus a fudge factor in case autopilot undershot
-                if ((loc.GetDistanceToShip() < loc.GetReferenceFrame().GetAutopilotArrivalDistance() + 100f) || Locator.GetCloakFieldController().isShipInsideCloak)
-                {
-                    return true;
-                }
-                else
-                {
-                    __result = Vector3.zero;
-                    return false;
-                }
+                __result = Vector3.zero;
+                return false;
             }
-
-            // Fallback if there's no destination and there's still a reference frame nearby
-            var rf = autopilot.GetCurrentLocationReferenceFrame();
-            if (rf != null) return true;
-
-            __result = Vector3.zero;
-            return false;
         }
     }
 }

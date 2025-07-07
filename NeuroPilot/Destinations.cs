@@ -2,8 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace NeuroPilot
@@ -250,14 +248,14 @@ namespace NeuroPilot
                 return false;
             }
 
-            var eclipseDot = Vector3.Dot((sun.position - ship.position).normalized, (ringWorld.position - ship.position).normalized);
+            var eclipseDot = Vector3.Dot((sun.position - ringWorld.position).normalized, (ringWorld.position - ship.position).normalized);
            
             // If we have not discovered the Stranger yet, check if the ship is near the map satellite and the eclipse is visible
             if (!Locator.GetShipLogManager() || !Locator.GetShipLogManager().IsFactRevealed("IP_RING_WORLD_X1"))
             {
                 var mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
                 var mapSatelliteDistance = Vector3.Distance(ship.position, mapSatellite.position);
-                var isEclipseVisible = eclipseDot > 0.99f;
+                var isEclipseVisible = eclipseDot > 0.96f;
                 var isNearMapSatellite = mapSatelliteDistance < 100f;
 
                 if (!isNearMapSatellite)
@@ -274,7 +272,7 @@ namespace NeuroPilot
             }
 
             // Only the destination on the same side of the Stranger as the ship is valid
-            var isOnLightSide = eclipseDot < 0f || (ship.position - sun.position).magnitude < 11894;
+            var isOnLightSide = eclipseDot < 0f;
 
             if (isOnLightSide != lightSide)
             {

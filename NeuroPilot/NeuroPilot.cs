@@ -70,16 +70,17 @@ namespace NeuroPilot
 
         protected void OnCompleteSceneLoad(OWScene previousScene, OWScene newScene)
         {
+            if (newScene != OWScene.SolarSystem)
+            {
+                CleanUpActions();
+                return;
+            }
+
             var probeBody = GameObject.Find("NomaiProbe_Body");
             if (probeBody != null) AddReferenceFrame(probeBody, 300, 5, 15000f);
             else
             {
                 ModHelper.Console.WriteLine("NomaiProbe_Body not found!", MessageType.Error);
-            }
-            if (newScene != OWScene.SolarSystem)
-            {
-                CleanUpActions();
-                return;
             }
 
             Destinations.SetUp();
