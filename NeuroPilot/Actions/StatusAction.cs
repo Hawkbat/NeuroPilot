@@ -6,11 +6,11 @@ using NeuroSdk.Websocket;
 
 namespace NeuroPilot.Actions
 {
-    public class CheckAutoPilotAction : NeuroAction
+    public class StatusAction : NeuroAction
     {
-        public override string Name => "checkAutoPilot";
+        public override string Name => "status";
 
-        protected override string Description => "Checks the current status of the autopilot module.";
+        protected override string Description => "Checks the current status of the autopilot module and assorted ship functions.";
 
         protected override JsonSchema Schema => new()
         {

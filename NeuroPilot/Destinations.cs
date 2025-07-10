@@ -28,7 +28,7 @@ namespace NeuroPilot
             new FloatingDestination("Hollow's Lantern", "VolcanicMoon_Body/RFVolume_VM", 200f, 500f),
 
             new PlanetoidDestination("Giant's Deep", "GiantsDeep_Body/RFVolume_GD", 950f, 2500f),
-            new FloatingDestination("Orbital Probe Cannon", "OrbitalProbeCannon_Body/RFVolume_OrbitalProbeCannon", 200f, 400f),
+            new OPCDestination("Orbital Probe Cannon", "OrbitalProbeCannon_Body/RFVolume_OrbitalProbeCannon", 200f, 400f),
             new ProbeDestination("Probe", "NomaiProbe_Body/RFVolume", 100f, 500f),
 
             new FloatingDestination("Dark Bramble", "DarkBramble_Body/RFVolume_DB", 950f, 1800f),
@@ -36,16 +36,18 @@ namespace NeuroPilot
             new PlanetoidDestination("The Interloper", "Comet_Body/RFVolume_CO", 300f, 600f),
             new ShuttleDestination("Interloper Shuttle", NomaiShuttleController.ShuttleID.HourglassShuttle, 50f, 200f),
             
-            new FloatingDestination("White Hole Station", "WhiteholeStation_Body/RFVolume_WhiteholeStation", 100f, 300f),
+            new WhiteHoleStationDestination("White Hole Station", "WhiteholeStation_Body/RFVolume_WhiteholeStation", 100f, 300f),
 
-            new FloatingDestination("Hearthian Map Satellite", "HearthianMapSatellite_Body/RFVolume_HMS", 100f, 300f),
+            new MapSatelliteDestination("Hearthian Map Satellite", "HearthianMapSatellite_Body/RFVolume_HMS", 100f, 300f),
 
             new QuantumMoonDestination("The Quantum Moon", "QuantumMoon_Body/Volumes/RFVolume", 110f, 500f),
             new ShuttleDestination("Quantum Moon Shuttle", NomaiShuttleController.ShuttleID.BrittleHollowShuttle, 50f, 200f),
 
-            new FloatingDestination("Backer Satellite", "BackerSatellite_Body/RFVolume_BS", 100f, 300f),
+            new FloatingDestination("Secret Satellite", "BackerSatellite_Body/RFVolume_BS", 100f, 300f),
             
             new ShipDestination(),
+            
+            new TargetedDestination()
         ];
 
         public static IEnumerable<Destination> GetAll() => destinations;
@@ -70,6 +72,8 @@ namespace NeuroPilot
             }
             return null;
         }
+
+        public static T GetByType<T>() where T : class => GetAllValid().Concat(GetAll()).OfType<T>().FirstOrDefault();
 
         public static Destination GetShipLocation()
             => GetAllValid().Where(d => d.ShipIsAt()).OrderBy(d => d.GetDistanceToShip()).FirstOrDefault();
@@ -188,6 +192,15 @@ namespace NeuroPilot
             }
             return true;
         }
+
+        public override string GetName()
+        {
+            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("ORBITAL_PROBE_CANNON").GetState() == ShipLogEntry.State.Hidden)
+            {
+                return "Fired blue thing";
+            }
+            return name;
+        }
     }
 
     public class PlanetoidDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
@@ -213,12 +226,48 @@ namespace NeuroPilot
         {
             if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("QUANTUM_MOON").GetState() == ShipLogEntry.State.Hidden)
             {
-                return "Round white cloudy moon";
+                return "White cloudy moon";
             }
-            return $"The Quantum Moon";
+            return name;
         }
 
         public override bool CanLand() => true;
+    }
+
+    public class OPCDestination(string name, string path, float innerRadius, float outerRadius) : FloatingDestination(name, path, innerRadius, outerRadius)
+    {
+        public override string GetName()
+        {
+            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("ORBITAL_PROBE_CANNON").GetState() == ShipLogEntry.State.Hidden)
+            {
+                return "Giant's Deep Orbital Flash";
+            }
+            return name;
+        }
+    }
+
+    public class WhiteHoleStationDestination(string name, string path, float innerRadius, float outerRadius) : FloatingDestination(name, path, innerRadius, outerRadius)
+    {
+        public override string GetName()
+        {
+            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("WHITE_HOLE_STATION").GetState() == ShipLogEntry.State.Hidden)
+            {
+                return "White spot";
+            }
+            return name;
+        }
+    }
+
+    public class MapSatelliteDestination(string name, string path, float innerRadius, float outerRadius) : FloatingDestination(name, path, innerRadius, outerRadius)
+    {
+        public override string GetName()
+        {
+            if (!PlayerData.KnowsFrequency(SignalFrequency.Radio))
+            {
+                return "Red spot";
+            }
+            return name;
+        }
     }
 
     public class StrangerDestination(string name, string path, bool lightSide, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
@@ -404,6 +453,46 @@ namespace NeuroPilot
             };
 
             go.SetActive(true);
+        }
+    }
+
+    public class TargetedDestination() : Destination("Targeted Body", 0f, 100f)
+    {
+        public override bool CanLand() => Destination()?.CanLand() ?? false;
+
+        public override ReferenceFrame GetReferenceFrame()
+        {
+            var rfv = Locator._rfTracker?.GetReferenceFrame();
+            if (rfv == null) return null;
+            return rfv;
+        }
+
+        public string GetDestinationName() => Destinations.GetByType<TargetedDestination>()?.Destination()?.GetName()
+                ?? (string.IsNullOrWhiteSpace(GetReferenceFrame()?.GetHUDDisplayName())
+                ? "A destination" : GetReferenceFrame().GetHUDDisplayName());
+
+        public override bool PlayerIsAt() => Destination()?.PlayerIsAt() ?? (GetReferenceFrame().GetPosition() - Locator.GetPlayerBody().GetPosition()).magnitude < 100;
+        public override bool ShipIsAt() => Destination()?.ShipIsAt() ?? (GetReferenceFrame().GetPosition() - Locator.GetShipBody().GetPosition()).magnitude < 100;
+
+        public override float GetDistanceToShip()
+        {
+            var shipPos = Locator.GetShipBody().GetPosition();
+            var destPos = GetReferenceFrame()?.GetPosition() ?? shipPos;
+            return Vector3.Distance(destPos, shipPos);
+        }
+
+        public override float GetDistanceToPlayer()
+        {
+            var playerPos = Locator.GetPlayerBody().GetPosition();
+            var destPos = GetReferenceFrame()?.GetPosition() ?? playerPos;
+            return Vector3.Distance(destPos, playerPos);
+        }
+
+        public Destination Destination() {
+            var destination = Destinations.GetByReferenceFrame(GetReferenceFrame());
+            if (destination == this) 
+                destination = null;
+            return destination;
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -7,10 +8,10 @@ namespace NeuroPilot
 {
     public class EnhancedAutoPilot : MonoBehaviour
     {
-        public class AutopilotEvent : UnityEvent<string> { }
+        public class AutopilotEvent : UnityEvent<string, bool> {}
 
         private const float STUCK_TIMEOUT = 5f;
-        private const float TAKEOFF_TARGET_VELOCITY = 200f;
+        private const float TAKEOFF_TARGET_VELOCITY = 300f;
         private const float LANDING_TARGET_VELOCITY = -30f;
 
         private static EnhancedAutoPilot instance;
@@ -49,13 +50,16 @@ namespace NeuroPilot
         public ReferenceFrame GetCurrentLocationReferenceFrame() => Destinations.GetShipLocation()?.GetReferenceFrame() ??
             shipSectorDetector.GetPassiveReferenceFrame();
 
+        public ReferenceFrame GetLandingReferenceFrame() => GetCurrentTask() is TakeOffTask takeOffTask ? takeOffTask.location : GetCurrentTask() is LandingTask landingTask ? landingTask.location : null;
+
         public AutoPilotTask GetCurrentTask() => taskQueue.TryPeek(out var task) ? task : null;
         public IEnumerable<AutoPilotTask> GetQueuedTasks() => taskQueue;
 
-        public bool IsManualAllowed() => NeuroPilot.ManualOverride
+        public bool IsManualAllowed() => !IsAutopilotActive() && 
+            (NeuroPilot.ManualOverride
             || GetCurrentLocation()?.GetDistanceToShip() < GetCurrentLocation()?.GetReferenceFrame()?.GetAutopilotArrivalDistance() + 100f
             || GetCurrentLocationReferenceFrame() != null
-            || Locator.GetCloakFieldController().isShipInsideCloak;
+            || Locator.GetCloakFieldController().isShipInsideCloak);
 
         public bool IsAutopilotActive() => GetCurrentTask() != null;
         public bool IsTraveling() => GetCurrentTask() is TravelTask;
@@ -67,6 +71,7 @@ namespace NeuroPilot
         public IEnumerable<Destination> GetActiveObstacles() => activeObstacles;
 
         public bool IsAutopilotAvailable() => playerHasEnteredShip && !autopilot.IsDamaged() && !cockpitController._shipSystemFailure && !(NeuroPilot.ManualOverride && PlayerState.AtFlightConsole());
+        public bool IsAutopilotDamaged() => autopilot.IsDamaged() || cockpitController._shipSystemFailure;
 
         protected void Awake()
         {
@@ -110,12 +115,12 @@ namespace NeuroPilot
 
                         if (currentTask is TakeOffTask)
                         {
-                            OnAutopilotMessage.Invoke($"Autopilot has aborted because the ship became stuck while trying to take off.");
+                            OnAutopilotMessage.Invoke($"Autopilot has aborted because the ship became stuck while trying to take off.", false);
                             AbortTask();
                         }
                         else
                         {
-                            OnAutopilotMessage.Invoke($"Autopilot complete. The ship has come to a stop but may not be on solid ground.");
+                            OnAutopilotMessage.Invoke($"Autopilot complete. The ship has come to a stop but may not be on solid ground.", false);
                             CompleteTask();
                         }
                     }
@@ -127,9 +132,9 @@ namespace NeuroPilot
             }
             if (currentTask is TakeOffTask takeOffTask)
             {
-                if (GetCurrentLocationReferenceFrame() != takeOffTask.location)
+                if ((takeOffTask.location.GetPosition() - cockpitController._shipBody.GetWorldCenterOfMass()).magnitude > takeOffTask.location.GetAutopilotArrivalDistance() + 100f )
                 {
-                    OnAutopilotMessage.Invoke("Autopilot has successfully taken off from the current location.");
+                    OnAutopilotMessage.Invoke("Autopilot has successfully taken off from the current location.", true);
                     CompleteTask();
                 }
             }
@@ -137,7 +142,7 @@ namespace NeuroPilot
             {
                 if (cockpitController._landingManager.IsLanded())
                 {
-                    OnAutopilotMessage.Invoke("Autopilot has successfully landed at the current location.");
+                    OnAutopilotMessage.Invoke("Autopilot has successfully landed at the current location.", false);
                     CompleteTask();
                 }
             }
@@ -148,16 +153,16 @@ namespace NeuroPilot
                 {
                     var towardsDir = (target.GetPosition() - Locator.GetShipBody().GetPosition()).normalized;
                     var relativeVelocity = Locator.GetShipBody().GetRelativeVelocity(target).normalized;
-                    var isMovingAway = Vector3.Dot(towardsDir, relativeVelocity) < -0.25f;
+                    var isMovingAway = Vector3.Dot(towardsDir, relativeVelocity) > 0;
                     if (isMovingAway)
                     {
-                        OnAutopilotMessage.Invoke($"Autopilot successfully evaded {Destinations.GetByReferenceFrame(evadeTask.location)?.GetName() ?? evadeTask.location.GetHUDDisplayName()}.");
+                        OnAutopilotMessage.Invoke($"Autopilot successfully evaded {Destinations.GetByReferenceFrame(evadeTask.location)?.GetName() ?? evadeTask.location.GetHUDDisplayName()}.", false);
                         CompleteTask();
                     }
                 }
                 else
                 {
-                    OnAutopilotMessage.Invoke("Autopilot has aborted evasion because the target location no longer exists.");
+                    OnAutopilotMessage.Invoke("Autopilot has aborted evasion because the target location no longer exists.", false);
                     AbortTask();
                 }
             }
@@ -165,26 +170,29 @@ namespace NeuroPilot
             {
                 if (!autopilot.IsFlyingToDestination() && !autopilot.FlyToDestination(travelTask.destination.GetReferenceFrame()))
                 {
-                    OnAutopilotMessage.Invoke($"Autopilot failed to engage travel to destination '{travelTask.destination}'.");
+                    OnAutopilotMessage.Invoke($"Autopilot failed to engage travel to destination '{travelTask.destination}'.", false);
                     AbortTask();
                 }
                 if (EntitlementsManager.IsDlcOwned() == EntitlementsManager.AsyncOwnershipStatus.Owned && Locator.GetCloakFieldController().isShipInsideCloak)
                 {
-                    OnAutopilotMessage.Invoke("Autopilot has aborted travel because the ship has entered a cloaking field.");
+                    OnAutopilotMessage.Invoke("Autopilot has aborted travel because the ship has entered a cloaking field.", false);
                     AbortTask();
                 }
             }
 
             UpdateObstacles();
 
-            cockpitController._thrustController.enabled = !cockpitController._shipSystemFailure;
-            cockpitController._thrustController._shipAlignment.enabled = IsTakingOff() || IsLanding();
-            cockpitController._thrustController._shipAlignment._localAlignmentAxis = Vector3.down;
+            if (!IsManualAllowed())
+            {
+                cockpitController._thrustController.enabled = !cockpitController._shipSystemFailure;
+                cockpitController._thrustController._shipAlignment.enabled = IsTakingOff() || IsLanding();
+                cockpitController._thrustController._shipAlignment._localAlignmentAxis = Vector3.down;
+            }
         }
 
         public float GetCurrentLandingVelocity()
         {
-            var rfv = GetCurrentLocationReferenceFrame();
+            var rfv = GetLandingReferenceFrame();
             if (rfv != null)
             {
                 var upAxis = (Locator.GetShipBody().GetPosition() - rfv.GetPosition()).normalized;
@@ -199,7 +207,7 @@ namespace NeuroPilot
         {
             var currentTask = GetCurrentTask();
             if (currentTask is TakeOffTask) return TAKEOFF_TARGET_VELOCITY;
-            if (currentTask is LandingTask) return LANDING_TARGET_VELOCITY;
+            if (currentTask is LandingTask) return Math.Min(-(((cockpitController._shipBody.GetPosition() - GetLandingReferenceFrame().GetPosition()).magnitude - Destinations.GetByReferenceFrame(GetLandingReferenceFrame())?.GetInnerRadius() ?? 200f) / 5), LANDING_TARGET_VELOCITY);
             return 0f;
         }
 
@@ -243,7 +251,7 @@ namespace NeuroPilot
             if (autopilot.IsFlyingToDestination()) autopilot.Abort();
             if (IsAutopilotActive()) AbortTask();
 
-            OnAutopilotMessage.Invoke("Autopilot has been manually aborted.");
+            OnAutopilotMessage.Invoke("Autopilot has been manually aborted.", true);
 
             error = string.Empty;
             return true;
@@ -353,27 +361,48 @@ namespace NeuroPilot
 
         public string GetAutopilotStatus()
         {
+            List<string> messages = new List<string>();
+
+            if (autopilot.IsDamaged())
+            {
+                return "Autopilot module is damaged. There is a problem with your AI.";
+            }
             if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
             {
                 return "Autopilot is not available. The manual override has been engaged by the pilot.";
             }
-
             if (!playerHasEnteredShip)
             {
                 return "Autopilot is not available. The ship has not been powered on yet.";
             }
-
-            if (autopilot.IsDamaged())
-            {
-                return "Autopilot module is damaged and cannot be engaged until it is repaired manually.";
-            }
-
+            
             if (autopilot.IsFlyingToDestination())
             {
-                return $"Autopilot is currently engaged to travel to destination: {GetCurrentDestinationName()}.";
+                messages.Add($"Autopilot is currently engaged to travel to destination: {GetCurrentDestinationName()}.");
+            }
+            else if (IsLanding())
+            {
+                messages.Add($"Autopilot is currently landing at: {GetCurrentDestinationName()}.");
+            }
+            else if(IsTakingOff())
+            {
+                messages.Add($"Autopilot is currently taking off from: {GetCurrentDestinationName()}.");
+            }
+            else if(IsEvading())
+            {
+                messages.Add($"Autopilot is currently evding: {GetCurrentDestinationName()}.");
+            }
+            else
+            { 
+                messages.Add($"Autopilot is currently idle. You can engage it to travel to a destination."); 
             }
 
-            return $"Autopilot is currently idle. You can engage it to travel to a destination.";
+            messages.Add($"Avalible destinations: [{string.Join(", ", Destinations.GetAllValidNames())}]");
+            messages.Add($"Ship hatch is {(hatchController.isActiveAndEnabled ? "closed" : "open")}");
+            messages.Add($"Ship headlights are {(cockpitController._externalLightsOn ? "on" : "off")}.");
+            messages.Add($"{Destinations.GetByType<TargetedDestination>().GetDestinationName()} is currently targeted.");
+
+            return string.Join(" \n ", messages);
         }
 
         private bool ValidateAutopilotStatus(out string error)
@@ -413,16 +442,18 @@ namespace NeuroPilot
 
             foreach (var d in Destinations.GetAll())
             {
+                if (d is TargetedDestination)
+                    continue;
                 if (d == currentDestination || d == currentLocation || d.GetReferenceFrame() == null || d is ShipDestination)
                 {
                     if (possibleObstacles.Contains(d))
                     {
-                        OnAutopilotMessage.Invoke($"{d} is no longer a potential obstacle on the current travel path.");
+                        OnAutopilotMessage.Invoke($"{d} is no longer a potential obstacle on the current travel path.", true);
                         possibleObstacles.Remove(d);
                     }
                     if (activeObstacles.Contains(d))
                     {
-                        OnAutopilotMessage.Invoke($"{d} is no longer an active obstacle on the current travel path.");
+                        OnAutopilotMessage.Invoke($"{d} is no longer an active obstacle on the current travel path.", true);
                         activeObstacles.Remove(d);
                     }
                     continue;
@@ -455,7 +486,7 @@ namespace NeuroPilot
                     }
                     if (!activeObstacles.Contains(d))
                     {
-                        OnAutopilotMessage.Invoke($"{d} is now an active obstacle on the current travel path, {distanceToObject:F2} meters away.");
+                        OnAutopilotMessage.Invoke($"{d} is now an active obstacle on the current travel path, {distanceToObject:F2} meters away.", false);
                         activeObstacles.Add(d);
                     }
                 }
@@ -463,12 +494,12 @@ namespace NeuroPilot
                 {
                     if (activeObstacles.Contains(d))
                     {
-                        OnAutopilotMessage.Invoke($"{d} is no longer an active obstacle on the current travel path.");
+                        OnAutopilotMessage.Invoke($"{d} is no longer an active obstacle on the current travel path.", true);
                         activeObstacles.Remove(d);
                     }
                     if (!possibleObstacles.Contains(d))
                     {
-                        OnAutopilotMessage.Invoke($"{d} is a potential obstacle on the current travel path, {distanceToObject:F2} meters away.");
+                        OnAutopilotMessage.Invoke($"{d} is a potential obstacle on the current travel path, {distanceToObject:F2} meters away.", true);
                         possibleObstacles.Add(d);
                     }
                 }
@@ -476,19 +507,19 @@ namespace NeuroPilot
                 {
                     if (possibleObstacles.Contains(d))
                     {
-                        OnAutopilotMessage.Invoke($"{d} is no longer a potential obstacle on the current travel path.");
+                        OnAutopilotMessage.Invoke($"{d} is no longer a potential obstacle on the current travel path.", true);
                         possibleObstacles.Remove(d);
                     }
                     if (activeObstacles.Contains(d))
                     {
-                        OnAutopilotMessage.Invoke($"{d} is no longer an active obstacle on the current travel path.");
+                        OnAutopilotMessage.Invoke($"{d} is no longer an active obstacle on the current travel path.", true);
                         activeObstacles.Remove(d);
                     }
                 }
             }
         }
 
-        private void AcceptTask(AutoPilotTask task)
+        private void AcceptTask(AutoPilotTask task, bool silent = false)
         {
             if (taskQueue.Count > 0) AbortTask();
             if (task is TravelTask travelTask)
@@ -510,11 +541,11 @@ namespace NeuroPilot
             RunTask();
         }
 
-        private void RunTask()
+        private void RunTask(bool silent = false)
         {
             if (taskQueue.Count > 0)
             {
-                OnAutopilotMessage.Invoke(GetCurrentTask().ToString());
+                OnAutopilotMessage.Invoke($"Autopilot engaged to {GetCurrentTask().ToString()}", true);
                 taskNotification = new NotificationData(NotificationTarget.All, $"Autopilot Engaged: {GetCurrentTask()}".ToUpper());
                 NotificationManager.SharedInstance.PostNotification(taskNotification, true);
             }
@@ -522,7 +553,7 @@ namespace NeuroPilot
 
         bool autopilotAbortDebounce;
 
-        private void AbortTask()
+        private void AbortTask(bool silent = false)
         {
             if (!autopilotAbortDebounce && autopilot.IsFlyingToDestination())
             {
@@ -530,7 +561,14 @@ namespace NeuroPilot
                 autopilot.Abort();
                 autopilotAbortDebounce = false;
             }
+            else {
+                cockpitController._shipAudioController.PlayAutopilotOff();
+            }
 
+            if (IsTakingOff() || IsLanding())
+            {
+                cockpitController.ExitLandingMode();
+            }
             taskQueue.Clear();
             if (taskNotification != null)
             {
@@ -561,21 +599,21 @@ namespace NeuroPilot
                 else
                 {
                     // We effectively *didn't* arrive at the destination if the error is too large; retry
-                    AcceptTask(new TravelTask(GetCurrentDestination()));
+                    AcceptTask(new TravelTask(GetCurrentDestination()), true);
                 }
                 return;
             }
-            if (arrivalError > 50f)
+            else if (arrivalError > 50f)
             {
-                OnAutopilotMessage.Invoke($"Autopilot arrived at destination: {GetCurrentDestinationName()} (undershot by {arrivalError:F2} meters).");
+                OnAutopilotMessage.Invoke($"Autopilot arrived at destination: {GetCurrentDestinationName()} (undershot by {arrivalError:F2} meters).", true);
             }
             else if (arrivalError < -50f)
             {
-                OnAutopilotMessage.Invoke($"Autopilot arrived at destination: {GetCurrentDestinationName()} (overshot by {Mathf.Abs(arrivalError):F2} meters).");
+                OnAutopilotMessage.Invoke($"Autopilot arrived at destination: {GetCurrentDestinationName()} (overshot by {Mathf.Abs(arrivalError):F2} meters).", true);
             }
             else
             {
-                OnAutopilotMessage.Invoke($"Autopilot successfully arrived at destination: {GetCurrentDestinationName()}.");
+                OnAutopilotMessage.Invoke($"Autopilot successfully arrived at destination: {GetCurrentDestinationName()}.", true);
             }
 
             if (IsTraveling()) CompleteTask();
@@ -583,13 +621,13 @@ namespace NeuroPilot
 
         private void Autopilot_OnAlreadyAtDestination()
         {
-            OnAutopilotMessage.Invoke($"Autopilot is already at destination: {GetCurrentDestinationName()}.");
+            OnAutopilotMessage.Invoke($"Autopilot is already at destination: {GetCurrentDestinationName()}.", false);
             if (IsTraveling()) AbortTask();
         }
 
         private void Autopilot_OnAbortAutopilot()
         {
-            OnAutopilotMessage.Invoke($"Autopilot to destination '{GetCurrentDestinationName()}' has been aborted.");
+            OnAutopilotMessage.Invoke($"Autopilot to destination '{GetCurrentDestinationName()}' has been aborted.", true);
             if (IsTraveling()) AbortTask();
         }
 
@@ -598,7 +636,7 @@ namespace NeuroPilot
             if (!playerHasEnteredShip)
             {
                 playerHasEnteredShip = true;
-                OnAutopilotMessage.Invoke("The ship has been powered on. Autopilot can now be engaged at any time.");
+                OnAutopilotMessage.Invoke("The ship has been powered on. Autopilot can now be engaged at any time.", false);
             }
         }
     }
