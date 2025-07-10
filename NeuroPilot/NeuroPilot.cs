@@ -85,10 +85,14 @@ namespace NeuroPilot
 
             Destinations.SetUp();
 
-            EnhancedAutoPilot.GetInstance().OnAutopilotMessage.AddListener(msg =>
+            var autopilot = EnhancedAutoPilot.GetInstance();
+
+            GlobalMessenger.AddListener("EnterShip", () => autopilot.OnAutopilotMessage.Invoke("Player has entered the ship", true));
+            GlobalMessenger.AddListener("ExitShip", () => autopilot.OnAutopilotMessage.Invoke("Player has exited the ship", true));
+            EnhancedAutoPilot.GetInstance().OnAutopilotMessage.AddListener((msg, silent) =>
             {
                 logs.Add(msg);
-                Context.Send(msg);
+                Context.Send(msg, silent);
             });
 
             SetUpActions();
@@ -145,7 +149,7 @@ namespace NeuroPilot
                     new LandAction(),
                     new EvadeAction(),
                     new AbortAutoPilotAction(),
-                    new CheckAutoPilotAction(),
+                    new StatusAction(),
                     new ControlShipHatchAction(),
                     new ControlShipHeadlightsAction(),
                 ];
@@ -161,7 +165,10 @@ namespace NeuroPilot
             if (neuroActions != null)
             {
                 NeuroActionHandler.UnregisterActions(neuroActions);
-                Context.Send("There is a problem with the AI. Autopilot control is not available.");
+                if (EnhancedAutoPilot.GetInstance()?.IsAutopilotDamaged() ?? true)
+                    Context.Send("There is a problem with your AI. Autopilot control is not available.");
+                else
+                    Context.Send("Autopilot control is temporarily unavailable.");
                 ModHelper.Console.WriteLine($"Unregistered {neuroActions.Length} neuro actions.");
                 neuroActions = null;
             }

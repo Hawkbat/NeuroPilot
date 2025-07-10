@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using System;
 using UnityEngine;
 
 namespace NeuroPilot
@@ -31,6 +32,11 @@ namespace NeuroPilot
         {
             // Override reference frame used as the target for landing mode, match velocity, etc.
             // Surely this will have no negative ramifications
+            if (EnhancedAutoPilot.GetInstance().IsManualAllowed())
+            {
+                // If manual is allowed, use the original method
+                return true;
+            }
             __result = EnhancedAutoPilot.GetInstance().GetCurrentLocationReferenceFrame() ?? Locator._rfTracker.GetReferenceFrame();
             return false;
         }
@@ -47,6 +53,24 @@ namespace NeuroPilot
         {
             // Prevent automatic canceling of autopilot
             return false;
+        }
+
+        [HarmonyPostfix, HarmonyPatch(typeof(ReferenceFrameTracker), nameof(ReferenceFrameTracker.TargetReferenceFrame))]
+        public static void ReferenceFrameTracker_TargetReferenceFrame(ReferenceFrame frame)
+        {
+            // tell neuro that a destination was targeted
+            EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke(
+                $"{Destinations.GetByType<TargetedDestination>().GetDestinationName()} was targeted", true);
+        }
+
+        [HarmonyPrefix, HarmonyPatch(typeof(ReferenceFrameTracker), nameof(ReferenceFrameTracker.UntargetReferenceFrame)), HarmonyPatch(new Type[] { typeof(bool) })]
+        public static void ReferenceFrameTracker_UntargetReferenceFrame(bool playAudio)
+        {
+            // tell neuro that destination was untargeted
+            var targetedDestination = Destinations.GetByType<TargetedDestination>();
+            if (targetedDestination.GetReferenceFrame() != null)
+                EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke(
+                    $"{Destinations.GetByType<TargetedDestination>().GetDestinationName()} was untargeted", true);
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.FixedUpdate))]
@@ -99,21 +123,22 @@ namespace NeuroPilot
                     }
                 }
             }
-            if (!__instance._autopilot.IsFlyingToDestination())
+            if (autopilot.IsManualAllowed())
             {
-                if (autopilot.IsManualAllowed())
+                if (__instance.IsMatchVelocityAvailable(false) && OWInput.IsNewlyPressed(InputLibrary.matchVelocity, InputMode.All))
                 {
-                    if (__instance.IsMatchVelocityAvailable(false) && OWInput.IsNewlyPressed(InputLibrary.matchVelocity, InputMode.All))
-                    {
-                        __instance._autopilot.StartMatchVelocity(Locator.GetReferenceFrame(false), false);
-                    }
-                    else if (__instance._autopilot.IsMatchingVelocity() && !__instance._autopilot.IsFlyingToDestination() && OWInput.IsNewlyReleased(InputLibrary.matchVelocity, InputMode.All))
-                    {
-                        __instance._autopilot.StopMatchVelocity();
-                    }
+                    __instance._autopilot.StartMatchVelocity(Locator.GetReferenceFrame(false), false);
+                }
+                else if (__instance._autopilot.IsMatchingVelocity() && OWInput.IsNewlyReleased(InputLibrary.matchVelocity, InputMode.All))
+                {
+                    __instance._autopilot.StopMatchVelocity();
                 }
             }
             if (OWInput.IsInputMode(InputMode.ShipCockpit | InputMode.LandingCam)) {
+                if (OWInput.IsNewlyPressed(InputLibrary.autopilot) && autopilot.IsLanding())
+                {
+                    autopilot.TryAbortTravel(out var error);
+                }
                 if (!__instance._enteringLandingCam)
                 {
                     if (!__instance.UsingLandingCam() && OWInput.IsNewlyPressed(InputLibrary.landingCamera) && !OWInput.IsPressed(InputLibrary.freeLook))
@@ -130,11 +155,11 @@ namespace NeuroPilot
                     {
                         __instance.UpdateEnterLandingCamTransition();
                     }
-                    if (!__instance._isLandingMode && __instance.IsLandingModeAvailable() && autopilot.IsManualAllowed())
+                    if (!__instance._isLandingMode && __instance.IsLandingModeAvailable())
                     {
                         __instance.EnterLandingMode();
                     }
-                    else if (__instance._isLandingMode && (!__instance.IsLandingModeAvailable() || !autopilot.IsManualAllowed()))
+                    else if ((__instance._isLandingMode && !__instance.IsLandingModeAvailable()) && EnhancedAutoPilot.GetInstance().IsManualAllowed())
                     {
                         __instance.ExitLandingMode();
                     }
@@ -165,6 +190,28 @@ namespace NeuroPilot
             return true;
         }
 
+        [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.UpdateEnterLandingCamTransition))]
+        public static bool ShipCockpitController_UpdateEnterLandingCamTransition(ShipCockpitController __instance)
+        {
+            // Prevent entering landing cam disengaging autopilot
+            if ((double)Time.time <= __instance._initLandingCamTime + 0.44999998807907104)
+                return false;
+            __instance._enteringLandingCam = false;
+            if (__instance._landingCam.mode == LandingCamera.Mode.Swap)
+            {
+                __instance._playerCam.enabled = false;
+                __instance._landingCam.enabled = true;
+            }
+            __instance._thrustController.SetRollMode(true, -1);
+            if(__instance.IsLandingModeAvailable())
+                __instance._autopilot.StopMatchVelocity();
+            for (int index = 0; index < __instance._dashboardCanvases.Length; ++index)
+                __instance._dashboardCanvases[index].SetGameplayActive(false);
+            GlobalMessenger<OWCamera>.FireEvent("SwitchActiveCamera", __instance._landingCam.owCamera);
+            GlobalMessenger.FireEvent("EnterLandingView");
+            return false;
+        }
+
         [HarmonyPostfix, HarmonyPatch(typeof(ShipPromptController), nameof(ShipPromptController.Update))]
         public static void ShipPromptController_Update(ShipPromptController __instance)
         {
@@ -177,7 +224,7 @@ namespace NeuroPilot
             }
 
             __instance._autopilotPrompt.SetVisibility(false);
-            __instance._abortAutopilotPrompt.SetVisibility(false);
+            __instance._abortAutopilotPrompt.SetVisibility(EnhancedAutoPilot.GetInstance().IsLanding());
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(AlignShipWithReferenceFrame), nameof(AlignShipWithReferenceFrame.GetAlignmentDirection))]
@@ -185,9 +232,9 @@ namespace NeuroPilot
         {
             // Override alignment while autopilot is active
             var autopilot = EnhancedAutoPilot.GetInstance();
-            if (!autopilot.IsAutopilotActive())
+            if (autopilot.IsManualAllowed())
             {
-                // If autopilot is not active, use the original method
+                // If manual is allowed, use the original method
                 return true;
             }
 
@@ -196,16 +243,7 @@ namespace NeuroPilot
             if (autopilot.IsTakingOff() || autopilot.IsLanding())
             {
                 var task = EnhancedAutoPilot.GetInstance().GetCurrentTask();
-                ReferenceFrame rf = null;
-
-                if (task is LandingTask landingTask)
-                {
-                    rf = landingTask.location;
-                }
-                else if (task is TakeOffTask takeOffTask)
-                {
-                    rf = takeOffTask.location;
-                }
+                ReferenceFrame rf = autopilot.GetLandingReferenceFrame();
                 if (rf != null)
                 {
                     __result = rf.GetPosition() - __instance._owRigidbody.GetWorldCenterOfMass();
@@ -248,21 +286,24 @@ namespace NeuroPilot
                 // If the ship is in autopilot mode, return the autopilot's thrust vector
                 if (autopilot.IsTakingOff() || autopilot.IsLanding())
                 {
+                    ReferenceFrame rfv = autopilot.GetLandingReferenceFrame();
                     var currentVelocity = autopilot.GetCurrentLandingVelocity();
                     var targetVelocity = autopilot.GetTargetLandingVelocity();
                     var smoothingRange = 20f;
 
                     var task = autopilot.GetCurrentTask();
-                    ReferenceFrame rfv = null;
-                    if (task is LandingTask landingTask)
-                        rfv= landingTask.location;
-                    else if (task is TakeOffTask takeOffTask)
-                        rfv= takeOffTask.location;
 
 
                     Vector3 unclampedThrust = Vector3.zero;
                     if (rfv != null) {
-                        unclampedThrust = __instance._shipBody.transform.InverseTransformDirection((rfv.GetVelocity() - __instance._shipBody.GetVelocity()) * .5f);
+                        unclampedThrust = (__instance._shipBody.GetRelativeVelocity(rfv)) * .5f;
+
+                        var equtorialDistance = (__instance._shipBody.GetPosition().y - rfv.GetPosition().y);
+                        if (task is LandingTask && Destinations.GetByReferenceFrame(rfv) == Destinations.GetByName("Ember Twin") && Math.Abs(equtorialDistance) < 50)
+                        {
+                            unclampedThrust += Vector3.up * (50 - Math.Abs(equtorialDistance)) * Math.Sign(equtorialDistance); // Prevents the ship from falling into Ember Twin's canyon when landing
+                        }
+                        unclampedThrust = __instance._shipBody.transform.InverseTransformDirection(unclampedThrust);
                     }
 
                     var downThrust = (targetVelocity - currentVelocity) / smoothingRange;
@@ -277,8 +318,35 @@ namespace NeuroPilot
                     var target = ((EvadeTask)autopilot.GetCurrentTask()).location;
                     if (target != null)
                     {
-                        var dir = __instance._shipBody.GetWorldCenterOfMass() - target.GetPosition();
-                        __result = __instance.transform.InverseTransformDirection(dir.normalized);
+                        Vector3 tangent;
+
+                        var velocity = __instance._shipBody.GetRelativeVelocity(target);
+                        Vector3 u = Vector3.Normalize(velocity);
+
+                        float d = velocity.magnitude;
+                        var refFrame = target.GetPosition();
+                        if (d > 1)
+                        {
+                            Vector3 v = Vector3.Normalize(refFrame - Vector3.Dot(refFrame, u) * u);
+
+                            float l = Mathf.Sqrt(d * d - 1);
+
+                            float x = 1 / d;
+                            float y = l / d;
+
+                            float sign = Math.Sign(Vector3.Dot(refFrame, v));
+                            if (sign >= 0)
+                                tangent = x * u + y * v;
+                            else
+                                tangent = x * u - y * v;
+
+                            tangent = -tangent;
+                        } 
+                        else {
+                            tangent = -u;
+                        }
+
+                        __result = __instance.transform.InverseTransformDirection(tangent);
                         return false;
                     }
                 }
