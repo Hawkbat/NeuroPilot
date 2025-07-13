@@ -10,7 +10,7 @@ namespace NeuroPilot.Actions
     {
         const string destinationPropName = "destination";
 
-        public override string Name => "engageAutoPilotTravel";
+        public override string Name => "engage_travel";
 
         protected override string Description => "Activates the ship's autopilot to fly to a specific destination in the solar system.";
 
@@ -19,7 +19,7 @@ namespace NeuroPilot.Actions
             Type = JsonSchemaType.Object,
             Required = [destinationPropName],
             Properties = new Dictionary<string, JsonSchema> {
-                { destinationPropName, QJS.Enum(Destinations.GetAllValidNames()) },
+                { destinationPropName, QJS.Enum(Destinations.GetAllNames()) },
             },
         };
 

@@ -55,6 +55,15 @@ namespace NeuroPilot
             return false;
         }
 
+        [HarmonyPostfix, HarmonyPatch(typeof(Autopilot), nameof(Autopilot.SetDamaged))]
+        public static void ReferenceFrameTracker_SetDamaged(bool damaged)
+        {
+            // tell neuro that the autopilot was damaged
+            if (damaged)
+                EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke(
+                    $"The autopilot module has been damaged. There is a problem with your AI.", false);
+        }
+
         [HarmonyPostfix, HarmonyPatch(typeof(ReferenceFrameTracker), nameof(ReferenceFrameTracker.TargetReferenceFrame))]
         public static void ReferenceFrameTracker_TargetReferenceFrame(ReferenceFrame frame)
         {
@@ -71,6 +80,18 @@ namespace NeuroPilot
             if (targetedDestination.GetReferenceFrame() != null)
                 EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke(
                     $"{Destinations.GetByType<TargetedDestination>().GetDestinationName()} was untargeted", true);
+        }
+
+        [HarmonyPrefix, HarmonyPatch(typeof(NomaiShuttleController), nameof(NomaiShuttleController.UnsuspendShuttle))]
+        public static void NomaiShuttleController_UnsuspendShuttle(NomaiShuttleController __instance)
+        {
+            // tell neuro that the shuttle exists
+            if (Locator.GetShipLogManager() &&
+                ((!Locator.GetShipLogManager().GetFact("BH_GRAVITY_CANNON_X2").IsRevealed() && __instance.GetID() == NomaiShuttleController.ShuttleID.BrittleHollowShuttle)
+                || (!Locator.GetShipLogManager().GetFact("CT_GRAVITY_CANNON_X2").IsRevealed() && __instance.GetID() == NomaiShuttleController.ShuttleID.HourglassShuttle)))
+            {
+                NeuroPilot.instance.CleanUpActions();
+            }
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.FixedUpdate))]
@@ -110,8 +131,8 @@ namespace NeuroPilot
             if (__instance._controlsLocked && Time.time >= __instance._controlsUnlockTime)
             {
                 __instance._controlsLocked = false;
-                __instance._thrustController.enabled = !__instance._shipSystemFailure;
-                if (!__instance._shipSystemFailure)
+                __instance._thrustController.enabled = !autopilot.IsAutopilotDamaged();
+                if (!autopilot.IsAutopilotDamaged())
                 {
                     if (__instance._thrustController.RequiresIgnition() && __instance._landingManager.IsLanded())
                     {
@@ -182,7 +203,7 @@ namespace NeuroPilot
         [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.IsLandingModeAvailable))]
         public static bool ShipCockpitController_IsLandingModeAvailable(ShipCockpitController __instance, ref bool __result)
         {
-            if (!EnhancedAutoPilot.GetInstance().IsManualAllowed())
+            if (!EnhancedAutoPilot.GetInstance().IsManualAllowed() || EnhancedAutoPilot.GetInstance().IsSpinning())
             {
                 __result = false;
                 return false;
@@ -193,7 +214,6 @@ namespace NeuroPilot
         [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.UpdateEnterLandingCamTransition))]
         public static bool ShipCockpitController_UpdateEnterLandingCamTransition(ShipCockpitController __instance)
         {
-            // Prevent entering landing cam disengaging autopilot
             if ((double)Time.time <= __instance._initLandingCamTime + 0.44999998807907104)
                 return false;
             __instance._enteringLandingCam = false;
@@ -203,7 +223,8 @@ namespace NeuroPilot
                 __instance._landingCam.enabled = true;
             }
             __instance._thrustController.SetRollMode(true, -1);
-            if(__instance.IsLandingModeAvailable())
+            // Prevent entering landing cam disengaging autopilot
+            if (__instance.IsLandingModeAvailable())
                 __instance._autopilot.StopMatchVelocity();
             for (int index = 0; index < __instance._dashboardCanvases.Length; ++index)
                 __instance._dashboardCanvases[index].SetGameplayActive(false);
@@ -260,7 +281,56 @@ namespace NeuroPilot
             return false;
         }
 
-        [HarmonyPrefix, HarmonyPatch(typeof(ShipThrusterController), nameof(ShipThrusterController.ReadTranslationalInput))]
+        [HarmonyPrefix, HarmonyPatch(typeof(AlignWithDirection), nameof(AlignWithDirection.UpdateRotation))]
+        public static bool AlignShipWithReferenceFrame_UpdateRotation(AlignWithDirection __instance, Vector3 currentDirection, Vector3 targetDirection, float slerpRate, bool usePhysics)
+        {
+            if (!(__instance is AlignShipWithReferenceFrame alignShip))
+                return true;
+            if (usePhysics)
+            {
+                Vector3 angularVelocity = OWPhysics.FromToAngularVelocity(currentDirection, targetDirection);
+                alignShip._owRigidbody.SetAngularVelocity(Vector3.zero);
+                Vector3 velocityChange = angularVelocity * slerpRate;
+
+                // spin while aligning
+                if (EnhancedAutoPilot.GetInstance().IsSpinning())
+                {
+                    velocityChange = alignShip._owRigidbody.transform.up.normalized * (alignShip._interpolationRate * Time.fixedDeltaTime * 90 - velocityChange.magnitude) + velocityChange;
+                }
+
+                alignShip._owRigidbody.AddAngularVelocityChange(velocityChange);
+            }
+            else
+            {
+                Quaternion quaternion = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(currentDirection, targetDirection), slerpRate);
+                alignShip._owRigidbody.GetRigidbody().rotation = quaternion * alignShip._owRigidbody.GetRotation();
+            }
+            return false;
+        }
+
+        [HarmonyPostfix, HarmonyPatch(typeof(ShipThrusterController), nameof(ShipThrusterController.ReadRotationalInput))]
+        public static void ShipThrusterController_ReadRotationalInput(ShipThrusterController __instance, ref Vector3 __result)
+        {
+            // spin
+            var autopilot = EnhancedAutoPilot.GetInstance();
+            if (!autopilot.IsSpinning())
+                return;
+            autopilot.UpdateSpinning();
+
+            if (!__instance._shipResources.AreThrustersUsable())
+                return;
+
+            if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
+                return;
+
+            if (__instance._autopilot.IsFlyingToDestination())
+                __result.z = 1;
+            else
+                __result.y = 1;
+            return;
+        }
+
+            [HarmonyPrefix, HarmonyPatch(typeof(ShipThrusterController), nameof(ShipThrusterController.ReadTranslationalInput))]
         public static bool ShipThrusterController_ReadTranslationalInput(ShipThrusterController __instance, ref Vector3 __result)
         {
             // If manual override is enabled and player is piloting, allow player input

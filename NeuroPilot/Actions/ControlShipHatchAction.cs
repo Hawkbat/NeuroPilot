@@ -11,7 +11,7 @@ namespace NeuroPilot.Actions
     {
         const string openPropName = "open";
 
-        public override string Name => "controlShipHatch";
+        public override string Name => "control_ship_hatch";
 
         protected override string Description => "Opens or closes the external hatch, which the player uses to enter and exit the ship.";
 

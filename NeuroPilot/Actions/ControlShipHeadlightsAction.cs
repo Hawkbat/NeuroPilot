@@ -11,7 +11,7 @@ namespace NeuroPilot.Actions
     {
         const string onPropName = "on";
 
-        public override string Name => "controlShipHeadlights";
+        public override string Name => "control_ship_headlights";
 
         protected override string Description => "Turns the ship headlights on or off.";
 

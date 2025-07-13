@@ -34,14 +34,14 @@ namespace NeuroPilot
             new FloatingDestination("Dark Bramble", "DarkBramble_Body/RFVolume_DB", 950f, 1800f),
 
             new PlanetoidDestination("The Interloper", "Comet_Body/RFVolume_CO", 300f, 600f),
-            new ShuttleDestination("Interloper Shuttle", NomaiShuttleController.ShuttleID.HourglassShuttle, 50f, 200f),
+            new ShuttleDestination("Ember Twin Shuttle", NomaiShuttleController.ShuttleID.HourglassShuttle, 50f, 200f),
             
             new WhiteHoleStationDestination("White Hole Station", "WhiteholeStation_Body/RFVolume_WhiteholeStation", 100f, 300f),
 
             new MapSatelliteDestination("Hearthian Map Satellite", "HearthianMapSatellite_Body/RFVolume_HMS", 100f, 300f),
 
             new QuantumMoonDestination("The Quantum Moon", "QuantumMoon_Body/Volumes/RFVolume", 110f, 500f),
-            new ShuttleDestination("Quantum Moon Shuttle", NomaiShuttleController.ShuttleID.BrittleHollowShuttle, 50f, 200f),
+            new ShuttleDestination("Brittle Hollow Shuttle", NomaiShuttleController.ShuttleID.BrittleHollowShuttle, 50f, 200f),
 
             new FloatingDestination("Secret Satellite", "BackerSatellite_Body/RFVolume_BS", 100f, 300f),
             
@@ -53,6 +53,7 @@ namespace NeuroPilot
         public static IEnumerable<Destination> GetAll() => destinations;
         public static IEnumerable<Destination> GetAllValid() => destinations.Where(d => d.IsAvailable(out string reason));
 
+        public static void UpdateNames() => destinations.ForEach(d => d.UpdateName());
         public static IEnumerable<string> GetAllNames() => destinations.Select(d => d.GetName());
         public static IEnumerable<string> GetAllValidNames() => GetAllValid().Select(d => d.GetName());
 
@@ -83,18 +84,22 @@ namespace NeuroPilot
         public static void SetUp()
         {
             foreach (var d in destinations) d.SetUp();
+            Destinations.UpdateNames();
         }
     }
 
     public abstract class Destination(string name, float innerRadius, float outerRadius)
     {
-        protected readonly string name = name;
+        protected string name = name;
         protected readonly float innerRadius = innerRadius;
         protected readonly float outerRadius = outerRadius;
 
         public virtual string GetName() => name;
         public float GetInnerRadius() => innerRadius;
         public float GetOuterRadius() => outerRadius;
+
+        public virtual string GetNewName() => GetName();
+        public void UpdateName() => name = GetNewName();
 
         public override string ToString() => GetName();
 
@@ -156,7 +161,7 @@ namespace NeuroPilot
             var go = GameObject.Find(parts[0]);
             if (go == null)
             {
-                NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[0]}", MessageType.Error);
+                NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[0]}", MessageType.Warning);
                 return;
             }
             for (var i = 1; i < parts.Length; i++)
@@ -164,14 +169,14 @@ namespace NeuroPilot
                 var t = go.transform.Find(parts[i]);
                 if (t == null)
                 {
-                    NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[i]}", MessageType.Error);
+                    NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[i]}", MessageType.Warning);
                     return;
                 }
                 go = t.gameObject;
             }
 
             rfv = go.GetComponent<ReferenceFrameVolume>();
-            if (!rfv) NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not have a ReferenceFrameVolume component.", MessageType.Error);
+            if (!rfv) NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not have a ReferenceFrameVolume component.", MessageType.Warning);
         }
     }
 
@@ -187,19 +192,19 @@ namespace NeuroPilot
             if (!base.IsAvailable(out reason)) return false;
             if (Locator.GetShipBody() != null && GetDistanceToShip() > 50_000f)
             {
-                reason = "Probe is too far.";
+                reason = $"{GetName()} is too far.";
                 return false;
             }
             return true;
         }
 
-        public override string GetName()
+        public override string GetNewName()
         {
             if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("ORBITAL_PROBE_CANNON").GetState() == ShipLogEntry.State.Hidden)
             {
                 return "Fired blue thing";
             }
-            return name;
+            return "Probe";
         }
     }
 
@@ -210,25 +215,25 @@ namespace NeuroPilot
 
     public class SunStationDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
-        public override string GetName()
+        public override string GetNewName()
         {
             if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("S_SUNSTATION").GetState() == ShipLogEntry.State.Hidden)
             {
                 return "Object orbiting the sun";
             }
-            return name;
+            return "Sun Station";
         }
     }
 
     public class QuantumMoonDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
-        public override string GetName()
+        public override string GetNewName()
         {
             if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("QUANTUM_MOON").GetState() == ShipLogEntry.State.Hidden)
             {
                 return "White cloudy moon";
             }
-            return name;
+            return "The Quantum Moon";
         }
 
         public override bool CanLand() => true;
@@ -236,37 +241,37 @@ namespace NeuroPilot
 
     public class OPCDestination(string name, string path, float innerRadius, float outerRadius) : FloatingDestination(name, path, innerRadius, outerRadius)
     {
-        public override string GetName()
+        public override string GetNewName()
         {
             if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("ORBITAL_PROBE_CANNON").GetState() == ShipLogEntry.State.Hidden)
             {
                 return "Giant's Deep Orbital Flash";
             }
-            return name;
+            return "Orbital Probe Cannon";
         }
     }
 
     public class WhiteHoleStationDestination(string name, string path, float innerRadius, float outerRadius) : FloatingDestination(name, path, innerRadius, outerRadius)
     {
-        public override string GetName()
+        public override string GetNewName()
         {
             if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("WHITE_HOLE_STATION").GetState() == ShipLogEntry.State.Hidden)
             {
                 return "White spot";
             }
-            return name;
+            return "White Hole Station";
         }
     }
 
     public class MapSatelliteDestination(string name, string path, float innerRadius, float outerRadius) : FloatingDestination(name, path, innerRadius, outerRadius)
     {
-        public override string GetName()
+        public override string GetNewName()
         {
             if (!PlayerData.KnowsFrequency(SignalFrequency.Radio))
             {
                 return "Red spot";
             }
-            return name;
+            return "Hearthian Map Satellite";
         }
     }
 
@@ -274,48 +279,56 @@ namespace NeuroPilot
     {
         readonly bool lightSide = lightSide;
 
-        public override string GetName()
+        public override string GetNewName()
         {
-            if (!Locator.GetShipLogManager() || !Locator.GetShipLogManager().IsFactRevealed("IP_RING_WORLD_X1"))
+            if (Locator.GetShipLogManager() && Locator.GetShipLogManager().IsFactRevealed("IP_RING_WORLD_X1"))
             {
-                return "Dark shadow over the sun";
+                return $"The Stranger";
             }
-            return $"The Stranger";
+            if (!IsAvailable(out _)) {
+                return "Nothing";
+            }
+            return "Dark shadow over the sun";
         }
 
         public override bool IsAvailable(out string reason)
         {
             if (!base.IsAvailable(out reason)) return false;
 
-            var ringWorld = Locator.GetAstroObject(AstroObject.Name.RingWorld).transform;
-            var sun = Locator.GetAstroObject(AstroObject.Name.Sun).transform;
+            var ringWorld = Locator.GetAstroObject(AstroObject.Name.RingWorld)?.transform;
+            var sun = Locator.GetAstroObject(AstroObject.Name.Sun)?.transform;
             var ship = Locator.GetShipTransform();
 
-            if (!ringWorld || !sun || !ship)
+            if (!sun || !ship)
             {
                 reason = "Game not loaded yet.";
                 return false;
             }
 
+            if (!ringWorld)
+            {
+                reason = "This is nothing.";
+                return false;
+            }
+
             var eclipseDot = Vector3.Dot((sun.position - ringWorld.position).normalized, (ringWorld.position - ship.position).normalized);
-           
+
             // If we have not discovered the Stranger yet, check if the ship is near the map satellite and the eclipse is visible
             if (!Locator.GetShipLogManager() || !Locator.GetShipLogManager().IsFactRevealed("IP_RING_WORLD_X1"))
             {
                 var mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
-                var mapSatelliteDistance = Vector3.Distance(ship.position, mapSatellite.position);
-                var isEclipseVisible = eclipseDot > 0.96f;
-                var isNearMapSatellite = mapSatelliteDistance < 100f;
-
-                if (!isNearMapSatellite)
+                if (!mapSatellite)
                 {
-                    reason = "Ship is not near the Hearthian Map Satellite.";
+                    reason = "Game not loaded yet.";
                     return false;
                 }
 
-                if (!isEclipseVisible)
+                var isEclipseVisible = eclipseDot > 0.96f;
+                var isNearMapSatellite = Vector3.Distance(ship.position, mapSatellite.position) < 100f;
+
+                if (!isNearMapSatellite || !isEclipseVisible || !ringWorld)
                 {
-                    reason = "Eclipse is not visible from the ship's position.";
+                    reason = "This is nothing.";
                     return false;
                 }
             }
@@ -344,6 +357,11 @@ namespace NeuroPilot
         public override bool IsAvailable(out string reason)
         {
             if (!base.IsAvailable(out reason)) return false;
+            if (!isDiscovered())
+            {
+                reason = "This is nothing.";
+                return false;
+            }
             if (!controller)
             {
                 reason = "Shuttle not found.";
@@ -355,6 +373,22 @@ namespace NeuroPilot
                 return false;
             }
             return true;
+        }
+
+        private bool isDiscovered() => Locator.GetShipLogManager() &&
+                ((Locator.GetShipLogManager().GetFact("BH_GRAVITY_CANNON_X2").IsRevealed() && shuttleID == NomaiShuttleController.ShuttleID.BrittleHollowShuttle)
+                || (Locator.GetShipLogManager().GetFact("CT_GRAVITY_CANNON_X2").IsRevealed() && shuttleID == NomaiShuttleController.ShuttleID.HourglassShuttle));
+
+        public override string GetNewName()
+        {
+            if (!isDiscovered())
+            {
+                return "Nothing";
+            }
+            if (shuttleID == NomaiShuttleController.ShuttleID.BrittleHollowShuttle) {
+                return "Brittle Hollow Shuttle";
+            }
+            return "Ember Twin Shuttle";
         }
 
         public override ReferenceFrame GetReferenceFrame()
@@ -404,7 +438,7 @@ namespace NeuroPilot
     {
         ReferenceFrameVolume rfv;
 
-        public override string GetName() => StandaloneProfileManager.SharedInstance.currentProfile?.profileName ?? "Player";
+        public override string GetNewName() => StandaloneProfileManager.SharedInstance.currentProfile?.profileName ?? "Player";
 
         public override bool CanLand() => false;
 
@@ -470,6 +504,22 @@ namespace NeuroPilot
         public string GetDestinationName() => Destinations.GetByType<TargetedDestination>()?.Destination()?.GetName()
                 ?? (string.IsNullOrWhiteSpace(GetReferenceFrame()?.GetHUDDisplayName())
                 ? "A destination" : GetReferenceFrame().GetHUDDisplayName());
+
+        public override bool IsAvailable(out string reason)
+        {
+            if (GetReferenceFrame() == null)
+            {
+                reason = "No destination is currently targeted.";
+                return false;
+            }
+            if (Destination() is ShipDestination)
+            {
+                reason = "Ship cannot autopilot to itself.";
+                return false;
+            }
+            reason = string.Empty;
+            return true;
+        }
 
         public override bool PlayerIsAt() => Destination()?.PlayerIsAt() ?? (GetReferenceFrame().GetPosition() - Locator.GetPlayerBody().GetPosition()).magnitude < 100;
         public override bool ShipIsAt() => Destination()?.ShipIsAt() ?? (GetReferenceFrame().GetPosition() - Locator.GetShipBody().GetPosition()).magnitude < 100;

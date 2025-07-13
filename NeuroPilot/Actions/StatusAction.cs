@@ -10,7 +10,7 @@ namespace NeuroPilot.Actions
     {
         public override string Name => "status";
 
-        protected override string Description => "Checks the current status of the autopilot module and assorted ship functions.";
+        protected override string Description => "Checks the current status of the ship and lists avalible destinations.";
 
         protected override JsonSchema Schema => new()
         {

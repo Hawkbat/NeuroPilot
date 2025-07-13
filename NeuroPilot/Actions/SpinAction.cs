@@ -5,11 +5,11 @@ using NeuroSdk.Websocket;
 
 namespace NeuroPilot.Actions
 {
-    public class TakeOffAction : NeuroAction
+    public class SpinAction : NeuroAction
     {
-        public override string Name => "take_off";
+        public override string Name => "spin";
 
-        protected override string Description => "Uses the ship's autopilot to take off from the current location.";
+        protected override string Description => "Spin the ship.";
 
         protected override JsonSchema Schema => new()
         {
@@ -23,7 +23,7 @@ namespace NeuroPilot.Actions
                 return ExecutionResult.Failure("Autopilot can only be used while in-game.");
             }
 
-            if (!EnhancedAutoPilot.GetInstance().TryTakeOff(out var error))
+            if (!EnhancedAutoPilot.GetInstance().Spin(out var error))
             {
                 return ExecutionResult.Failure(error);
             }

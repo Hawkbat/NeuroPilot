@@ -7,7 +7,7 @@ namespace NeuroPilot.Actions
 {
     public class AbortAutoPilotAction : NeuroAction
     {
-        public override string Name => "abortAutoPilot";
+        public override string Name => "abort_auto_pilot";
 
         protected override string Description => "Deactivates the ship's autopilot while in flight, returning control to the player.";
 

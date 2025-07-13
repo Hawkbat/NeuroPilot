@@ -59,7 +59,7 @@ namespace NeuroPilot
             (NeuroPilot.ManualOverride
             || GetCurrentLocation()?.GetDistanceToShip() < GetCurrentLocation()?.GetReferenceFrame()?.GetAutopilotArrivalDistance() + 100f
             || GetCurrentLocationReferenceFrame() != null
-            || Locator.GetCloakFieldController().isShipInsideCloak);
+            || EntitlementsManager.IsDlcOwned() == EntitlementsManager.AsyncOwnershipStatus.Owned && Locator.GetCloakFieldController().isShipInsideCloak);
 
         public bool IsAutopilotActive() => GetCurrentTask() != null;
         public bool IsTraveling() => GetCurrentTask() is TravelTask;
@@ -70,8 +70,8 @@ namespace NeuroPilot
         public IEnumerable<Destination> GetPossibleObstacles() => possibleObstacles;
         public IEnumerable<Destination> GetActiveObstacles() => activeObstacles;
 
-        public bool IsAutopilotAvailable() => playerHasEnteredShip && !autopilot.IsDamaged() && !cockpitController._shipSystemFailure && !(NeuroPilot.ManualOverride && PlayerState.AtFlightConsole());
-        public bool IsAutopilotDamaged() => autopilot.IsDamaged() || cockpitController._shipSystemFailure;
+        public bool IsAutopilotAvailable() => playerHasEnteredShip && IsAutopilotDamaged() && !(NeuroPilot.ManualOverride && PlayerState.AtFlightConsole());
+        public bool IsAutopilotDamaged() => autopilot.IsDamaged() || cockpitController._shipSystemFailure || !cockpitController._shipBody.gameObject.activeSelf;
 
         protected void Awake()
         {
@@ -184,7 +184,7 @@ namespace NeuroPilot
 
             if (!IsManualAllowed())
             {
-                cockpitController._thrustController.enabled = !cockpitController._shipSystemFailure;
+                cockpitController._thrustController.enabled = !IsAutopilotDamaged();
                 cockpitController._thrustController._shipAlignment.enabled = IsTakingOff() || IsLanding();
                 cockpitController._thrustController._shipAlignment._localAlignmentAxis = Vector3.down;
             }
@@ -325,7 +325,7 @@ namespace NeuroPilot
 
         public bool TryControlHeadlights(bool on, out string error)
         {
-            if (cockpitController._shipSystemFailure)
+            if (IsAutopilotDamaged())
             {
                 error = "Cannot control ship headlights while the ship is damaged.";
                 return false;
@@ -346,14 +346,28 @@ namespace NeuroPilot
 
         public bool TryControlHatch(bool open, out string error)
         {
-            if (cockpitController._shipSystemFailure)
+            if (IsAutopilotDamaged())
             {
                 error = "Cannot control ship hatch while the ship is damaged.";
                 return false;
             }
+            if (hatchController._hatchObject.activeSelf != open)
+            {
+                error = $"Ship hatch is already {(open ? "open" : "closed")}.";
+                return false;
+            }
 
-            if (open) hatchController.OpenHatch();
-            else hatchController.CloseHatch();
+            if (open)
+            {
+                if (!PlayerState.IsInsideShip())
+                FindObjectOfType<ShipTractorBeamSwitch>().ActivateTractorBeam();
+                hatchController.OpenHatch();
+            }
+            else
+            {
+                FindObjectOfType<ShipTractorBeamSwitch>().DeactivateTractorBeam();
+                hatchController.CloseHatch();
+            }
 
             error = string.Empty;
             return true;
@@ -375,7 +389,11 @@ namespace NeuroPilot
             {
                 return "Autopilot is not available. The ship has not been powered on yet.";
             }
-            
+            if (cockpitController._shipSystemFailure || !cockpitController._shipBody.gameObject.activeSelf)
+            {
+                return "The ship has been destroyed.";
+            }
+
             if (autopilot.IsFlyingToDestination())
             {
                 messages.Add($"Autopilot is currently engaged to travel to destination: {GetCurrentDestinationName()}.");
@@ -398,11 +416,41 @@ namespace NeuroPilot
             }
 
             messages.Add($"Avalible destinations: [{string.Join(", ", Destinations.GetAllValidNames())}]");
-            messages.Add($"Ship hatch is {(hatchController.isActiveAndEnabled ? "closed" : "open")}");
+            messages.Add($"Ship hatch is {(hatchController._hatchObject.activeSelf ? "closed" : "open")}");
             messages.Add($"Ship headlights are {(cockpitController._externalLightsOn ? "on" : "off")}.");
             messages.Add($"{Destinations.GetByType<TargetedDestination>().GetDestinationName()} is currently targeted.");
 
             return string.Join(" \n ", messages);
+        }
+
+        float spinTime;
+
+        public bool Spin(out string error)
+        {
+            if (!ValidateAutopilotStatus(out error)) 
+                return false;
+            if (!(cockpitController._thrustController._isRotationalThrustEnabled && cockpitController._thrustController._shipAlignment.CheckAlignmentRequirements()))
+            {
+                error = "Ship has recently touched the ground and cannot spin.";
+                return false;
+            }
+
+            cockpitController.ExitLandingMode();
+            spinTime = 180;
+
+            error = string.Empty;
+            return true;
+        }
+
+        public bool IsSpinning()
+        {
+            return spinTime > 0;
+        }
+
+        public void UpdateSpinning()
+        {
+            if (spinTime > 0)
+                spinTime -= 1;
         }
 
         private bool ValidateAutopilotStatus(out string error)
@@ -419,7 +467,12 @@ namespace NeuroPilot
             }
             if (autopilot.IsDamaged())
             {
-                error = "Autopilot module is damaged and cannot be engaged until it is repaired manually.";
+                error = "Autopilot module is damaged and cannot be engaged until it is repaired manually. There is a problem with your AI.";
+                return false;
+            }
+            if (cockpitController._shipSystemFailure || !cockpitController._shipBody.gameObject.activeSelf)
+            {
+                error = "The ship has been destroyed.";
                 return false;
             }
             error = string.Empty;
@@ -584,6 +637,10 @@ namespace NeuroPilot
                 NotificationManager.SharedInstance.UnpinNotification(taskNotification);
                 taskNotification = null;
             }
+            if (IsTakingOff() || IsLanding())
+            {
+                cockpitController.ExitLandingMode();
+            }
             taskQueue.Dequeue();
             RunTask();
         }
@@ -636,7 +693,7 @@ namespace NeuroPilot
             if (!playerHasEnteredShip)
             {
                 playerHasEnteredShip = true;
-                OnAutopilotMessage.Invoke("The ship has been powered on. Autopilot can now be engaged at any time.", false);
+                cockpitController._thrustController._shipAlignment.Start();
             }
         }
     }

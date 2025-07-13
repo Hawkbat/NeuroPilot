@@ -51,10 +51,40 @@ namespace NeuroPilot
 
         protected void Update()
         {
+            IsStrangerNewlyAvailable();
             var autopilotAvailable = LoadManager.GetCurrentScene() == OWScene.SolarSystem && EnhancedAutoPilot.GetInstance() != null && EnhancedAutoPilot.GetInstance().IsAutopilotAvailable();
 
             if (autopilotAvailable) SetUpActions();
             else CleanUpActions();
+        }
+
+        public void IsStrangerNewlyAvailable()
+        {
+            if (!Destinations.GetByType<StrangerDestination>().GetName().Equals("Nothing"))
+                return;
+
+            var ringWorld = Locator.GetAstroObject(AstroObject.Name.RingWorld)?.transform;
+            var sun = Locator.GetAstroObject(AstroObject.Name.Sun)?.transform;
+            var ship = Locator.GetShipTransform();
+
+            if (!ringWorld || !sun || !ship)
+                return;
+
+            var mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
+            var isNearMapSatellite = Vector3.Distance(ship.position, mapSatellite.position) < 100f;
+
+            if (!isNearMapSatellite)
+                return;
+
+            var eclipseDot = Vector3.Dot((sun.position - ringWorld.position).normalized, (ringWorld.position - ship.position).normalized);
+            var isEclipseVisible = eclipseDot > 0.97f;
+
+            if (!isEclipseVisible)
+                return;
+
+            CleanUpActions();
+            SetUpActions();
+            EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("A \"Dark shadow over the sun\" has appeared. You should probably travel to it!", false);
         }
 
         public override void Configure(IModConfig config)
@@ -87,15 +117,32 @@ namespace NeuroPilot
 
             var autopilot = EnhancedAutoPilot.GetInstance();
 
+            var anglerFishExhibit = GameObject.Find("TimberHearth_Body/Sector_TH/Sector_Village/Sector_Observatory/Interactables_Observatory/AnglerFishExhibit/InteractVolume");
+            if (anglerFishExhibit != null)
+            {
+                var interaction = anglerFishExhibit.GetComponent<InteractVolume>();
+                if (interaction != null)
+                {
+                    ((SingleInteractionVolume)interaction).OnPressInteract += () => autopilot.OnAutopilotMessage.Invoke("Oh look its Ernesto!", false);
+                }
+            }
+
+            var ship = GameObject.Find("Ship_Body");
+            var listener = ship.GetComponent<ShipDestroyListener>();
+            if (listener == null)
+            {
+                listener = ship.AddComponent<ShipDestroyListener>();
+            }
+
             GlobalMessenger.AddListener("EnterShip", () => autopilot.OnAutopilotMessage.Invoke("Player has entered the ship", true));
             GlobalMessenger.AddListener("ExitShip", () => autopilot.OnAutopilotMessage.Invoke("Player has exited the ship", true));
-            EnhancedAutoPilot.GetInstance().OnAutopilotMessage.AddListener((msg, silent) =>
+            GlobalMessenger.AddListener("ShipSystemFailure", () => autopilot.OnAutopilotMessage.Invoke("The ship has been destroyed", false));
+
+            autopilot.OnAutopilotMessage.AddListener((msg, silent) =>
             {
                 logs.Add(msg);
                 Context.Send(msg, silent);
             });
-
-            SetUpActions();
         }
 
         public static ReferenceFrameVolume AddReferenceFrame(GameObject obj, float radius, float minTargetRadius, float maxTargetRadius)
@@ -143,6 +190,7 @@ namespace NeuroPilot
         {
             if (neuroActions == null)
             {
+                Destinations.UpdateNames();
                 neuroActions = [
                     new TravelAction(),
                     new TakeOffAction(),
@@ -152,6 +200,7 @@ namespace NeuroPilot
                     new StatusAction(),
                     new ControlShipHatchAction(),
                     new ControlShipHeadlightsAction(),
+                    new SpinAction(),
                 ];
 
                 NeuroActionHandler.RegisterActions(neuroActions);
@@ -160,7 +209,7 @@ namespace NeuroPilot
             }
         }
 
-        void CleanUpActions()
+        public void CleanUpActions()
         {
             if (neuroActions != null)
             {
@@ -229,6 +278,10 @@ namespace NeuroPilot
             if (GUILayout.Button("Headlights Off") && autopilot.TryControlHeadlights(false, out error)) { }
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Spin") && autopilot.Spin(out error)) { }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
 
             foreach (var dest in Destinations.GetAll())
             {
@@ -268,6 +321,18 @@ namespace NeuroPilot
 
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
+        }
+    }
+
+    public class ShipDestroyListener : MonoBehaviour
+    {
+
+        void OnDisable()
+        {
+            var autopilot = EnhancedAutoPilot.GetInstance();
+            autopilot.TryAbortTravel(out _);
+            autopilot.OnAutopilotMessage.Invoke("The ship has been destroyed", false);
+            NotificationManager.SharedInstance.PostNotification(new NotificationData(NotificationTarget.All, $"Connection with ship is lost".ToUpper()));
         }
     }
 }
