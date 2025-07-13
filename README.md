@@ -23,7 +23,7 @@ It's not as complicated as it looks, I promise!
 ## Credits
 
 - Acamaeda: Initial concept and feature proposal
-- Hawkbar: Mod development and implementation
+- Hawkbar, DialingSpoon: Mod development and implementation
 
 Special Thanks:
 - Vedal987: Creator of Neuro-sama
