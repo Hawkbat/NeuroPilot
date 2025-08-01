@@ -70,7 +70,7 @@ namespace NeuroPilot
         public IEnumerable<Destination> GetPossibleObstacles() => possibleObstacles;
         public IEnumerable<Destination> GetActiveObstacles() => activeObstacles;
 
-        public bool IsAutopilotAvailable() => playerHasEnteredShip && IsAutopilotDamaged() && !(NeuroPilot.ManualOverride && PlayerState.AtFlightConsole());
+        public bool IsAutopilotAvailable() => playerHasEnteredShip && !IsAutopilotDamaged() && !(NeuroPilot.ManualOverride && PlayerState.AtFlightConsole());
         public bool IsAutopilotDamaged() => autopilot.IsDamaged() || cockpitController._shipSystemFailure || !cockpitController._shipBody.gameObject.activeSelf;
 
         protected void Awake()

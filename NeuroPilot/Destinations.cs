@@ -43,7 +43,7 @@ namespace NeuroPilot
             new QuantumMoonDestination("The Quantum Moon", "QuantumMoon_Body/Volumes/RFVolume", 110f, 500f),
             new ShuttleDestination("Brittle Hollow Shuttle", NomaiShuttleController.ShuttleID.BrittleHollowShuttle, 50f, 200f),
 
-            new FloatingDestination("Secret Satellite", "BackerSatellite_Body/RFVolume_BS", 100f, 300f),
+            new FloatingDestination("Secret Satellite", "BackerSatellite_Body/RFVolume_BS", 200f, 400f),
             
             new ShipDestination(),
             
