@@ -423,11 +423,23 @@ namespace NeuroPilot
             return string.Join(" \n ", messages);
         }
 
+        public bool Eject(out string error)
+        {
+            if (!ValidateAutopilotStatus(out error))
+                return false;
+
+            cockpitController._shipBody.transform.Find("Module_Cockpit/Systems_Cockpit/EjectionSystem").GetComponent<ShipEjectionSystem>().enabled = true;
+            cockpitController._shipBody.transform.Find("Module_Cockpit/Systems_Cockpit/EjectionSystem").GetComponent<ShipEjectionSystem>()._ejectPressed = true;
+
+            error = string.Empty;
+            return true;
+        }
+
         float spinTime;
 
         public bool Spin(out string error)
         {
-            if (!ValidateAutopilotStatus(out error)) 
+            if (!ValidateAutopilotStatus(out error))
                 return false;
             if (!(cockpitController._thrustController._isRotationalThrustEnabled && cockpitController._thrustController._shipAlignment.CheckAlignmentRequirements()))
             {

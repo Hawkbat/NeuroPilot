@@ -207,6 +207,7 @@ namespace NeuroPilot
                     new ControlShipHatchAction(),
                     new ControlShipHeadlightsAction(),
                     new SpinAction(),
+                    new EjectAction(),
                 ];
 
                 NeuroActionHandler.RegisterActions(neuroActions);
@@ -286,6 +287,7 @@ namespace NeuroPilot
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Spin") && autopilot.Spin(out error)) { }
+            if (GUILayout.Button("Eject") && autopilot.Eject(out error)) { }
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
