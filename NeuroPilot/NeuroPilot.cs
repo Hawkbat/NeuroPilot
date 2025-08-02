@@ -45,6 +45,8 @@ namespace NeuroPilot
                 //ModHelper.MenuHelper.PopupMenuManager.CreateInfoPopup("Neuro API URL was not set. Either set the NEURO_SDK_WS_URL environment variable or set the Neuro API URL in the mod settings.", "OK").Activate();
             }
 
+            Context.Send("Once the player enters the ship for the first time, you will have full control for the rest of the loop unless the ship is destroyed. Be sure to take advantage of your commands. Experiment and have fun!");
+
             GlobalMessenger.AddListener("EnterShip", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("Player has entered the ship", true));
             GlobalMessenger.AddListener("ExitShip", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("Player has exited the ship", true));
             GlobalMessenger.AddListener("ShipSystemFailure", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("The ship has been destroyed", false));

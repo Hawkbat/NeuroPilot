@@ -12,7 +12,7 @@ namespace NeuroPilot.Actions
 
         public override string Name => "engage_travel";
 
-        protected override string Description => "Activates the ship's autopilot to fly to a specific destination in the solar system.";
+        protected override string Description => "Activates the ship's autopilot to takeoff, fly to, and land at specific destination in the solar system.";
 
         protected override JsonSchema Schema => new()
         {
