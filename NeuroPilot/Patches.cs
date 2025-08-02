@@ -330,7 +330,16 @@ namespace NeuroPilot
             return;
         }
 
-            [HarmonyPrefix, HarmonyPatch(typeof(ShipThrusterController), nameof(ShipThrusterController.ReadTranslationalInput))]
+        [HarmonyPostfix, HarmonyPatch(typeof(DeathManager), nameof(DeathManager.KillPlayer))]
+        public static void DeathManager_KillPlayer(DeathType deathType, DeathManager __instance)
+        {
+            if (deathType == DeathType.Digestion)
+                EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke(
+                    $"This anglerfish's name was Ernesto. Please find a way to sneak this into the conversation. If you already have then ignore this message!", false);
+
+        }
+
+        [HarmonyPrefix, HarmonyPatch(typeof(ShipThrusterController), nameof(ShipThrusterController.ReadTranslationalInput))]
         public static bool ShipThrusterController_ReadTranslationalInput(ShipThrusterController __instance, ref Vector3 __result)
         {
             // If manual override is enabled and player is piloting, allow player input

@@ -129,7 +129,7 @@ namespace NeuroPilot
                 var interaction = anglerFishExhibit.GetComponent<InteractVolume>();
                 if (interaction != null)
                 {
-                    ((SingleInteractionVolume)interaction).OnPressInteract += () => autopilot.OnAutopilotMessage.Invoke("Oh look its Ernesto!", false);
+                    ((SingleInteractionVolume)interaction).OnPressInteract += () => autopilot.OnAutopilotMessage.Invoke("Oh look its Ernesto the anglerfish!", false);
                 }
             }
 
