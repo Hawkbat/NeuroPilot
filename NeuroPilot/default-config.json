@@ -16,6 +16,11 @@
       "tooltip": "Prevents the AI agent from controlling the ship while the player is piloting it. Use this setting if the game becomes unplayable otherwise.",
       "type": "toggle",
       "value": false
+    },
+    "Prevent Destructive Actions": {
+      "tooltip": "Prevents the AI agent from using destructive actions like ejecting. For if it's being a nuisance.",
+      "type": "toggle",
+      "value": false
     }
   }
 }

@@ -16,10 +16,12 @@ namespace NeuroPilot
         internal static NeuroPilot instance;
 
         public static bool ManualOverride => instance.manualOverride;
+        public static bool AllowDestructive => instance.allowDestrucive;
 
         INeuroAction[] neuroActions;
         bool debugMode;
         bool manualOverride;
+        bool allowDestrucive;
 
         protected void Awake()
         {
@@ -103,6 +105,16 @@ namespace NeuroPilot
         {
             debugMode = config.GetSettingsValue<bool>("Debug Mode");
             manualOverride = config.GetSettingsValue<bool>("Manual Override");
+            allowDestrucive = !config.GetSettingsValue<bool>("Prevent Destructive Actions");
+            if (!allowDestrucive) 
+            {
+                HatchController hatchController = Locator._shipTransform.GetComponentInChildren<HatchController>();
+                if (hatchController._hatchObject.activeSelf && !PlayerState.IsInsideShip()) 
+                {
+                    FindObjectOfType<ShipTractorBeamSwitch>().ActivateTractorBeam();
+                    hatchController.OpenHatch();
+                }
+            }
         }
 
         protected void OnDestroy()

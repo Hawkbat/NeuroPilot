@@ -329,6 +329,11 @@ namespace NeuroPilot
             if (IsTraveling()) AbortTask();
 
             if (!ValidateAutopilotStatus(out error)) return false;
+            if (!NeuroPilot.AllowDestructive)
+            {
+                error = "The player has decided you were being a nuisance.";
+                return false;
+            }
 
             var destination = Destinations.GetByName(destinationName);
             if (destination == null)
@@ -378,6 +383,11 @@ namespace NeuroPilot
 
         public bool TryControlHatch(bool open, out string error)
         {
+            if (!NeuroPilot.AllowDestructive)
+            {
+                error = "The player has decided you were being a nuisance.";
+                return false;
+            }
             if (IsAutopilotDamaged())
             {
                 error = "Cannot control ship hatch while the ship is damaged.";
@@ -459,6 +469,11 @@ namespace NeuroPilot
         {
             if (!ValidateAutopilotStatus(out error))
                 return false;
+            if (!NeuroPilot.AllowDestructive)
+            {
+                error = "The player has decided you were being a nuisance.";
+                return false;
+            }
 
             cockpitController._shipBody.transform.Find("Module_Cockpit/Systems_Cockpit/EjectionSystem").GetComponent<ShipEjectionSystem>().enabled = true;
             cockpitController._shipBody.transform.Find("Module_Cockpit/Systems_Cockpit/EjectionSystem").GetComponent<ShipEjectionSystem>()._ejectPressed = true;

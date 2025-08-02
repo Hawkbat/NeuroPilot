@@ -41,6 +41,18 @@ namespace NeuroPilot
             return false;
         }
 
+        [HarmonyPrefix, HarmonyPatch(typeof(ShipTractorBeamSwitch), nameof(ShipTractorBeamSwitch.OnTriggerExit))]
+        public static bool ShipTractorBeamSwitch_OnTriggerExit()
+        {
+            // Dont activate the tractor beam if the hatch is closed
+            if (!Locator._shipTransform.GetComponentInChildren<HatchController>()._hatchObject.activeSelf)
+            {
+                return true;
+            }
+            return false;
+        }
+
+
         [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.OnTargetReferenceFrame))]
         public static bool ShipCockpitController_OnTargetReferenceFrame()
         {
@@ -245,7 +257,6 @@ namespace NeuroPilot
             }
 
             __instance._autopilotPrompt.SetVisibility(false);
-            __instance._abortAutopilotPrompt.SetVisibility(EnhancedAutoPilot.GetInstance().IsLanding());
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(AlignShipWithReferenceFrame), nameof(AlignShipWithReferenceFrame.GetAlignmentDirection))]
