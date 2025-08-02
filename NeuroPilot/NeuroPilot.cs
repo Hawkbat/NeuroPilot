@@ -58,6 +58,8 @@ namespace NeuroPilot
             else CleanUpActions();
         }
 
+        Transform mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
+
         public void IsStrangerNewlyAvailable()
         {
             if (!Destinations.GetByType<StrangerDestination>().GetName().Equals("Nothing"))
@@ -70,7 +72,11 @@ namespace NeuroPilot
             if (!ringWorld || !sun || !ship)
                 return;
 
-            var mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
+            if (!mapSatellite) {
+                mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
+                if (mapSatellite == null) return;
+            }
+
             var isNearMapSatellite = Vector3.Distance(ship.position, mapSatellite.position) < 100f;
 
             if (!isNearMapSatellite)
@@ -214,7 +220,7 @@ namespace NeuroPilot
             if (neuroActions != null)
             {
                 NeuroActionHandler.UnregisterActions(neuroActions);
-                if (EnhancedAutoPilot.GetInstance()?.IsAutopilotDamaged() ?? true)
+                if ((EnhancedAutoPilot.GetInstance()?.IsAutopilotDamaged() ?? true) && TimeLoop.GetSecondsRemaining() > 0)
                     Context.Send("There is a problem with your AI. Autopilot control is not available.");
                 else
                     Context.Send("Autopilot control is temporarily unavailable.");

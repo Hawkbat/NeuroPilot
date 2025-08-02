@@ -291,6 +291,8 @@ namespace NeuroPilot
             return "Dark shadow over the sun";
         }
 
+        Transform mapSatellite;
+
         public override bool IsAvailable(out string reason)
         {
             if (!base.IsAvailable(out reason)) return false;
@@ -316,11 +318,14 @@ namespace NeuroPilot
             // If we have not discovered the Stranger yet, check if the ship is near the map satellite and the eclipse is visible
             if (!Locator.GetShipLogManager() || !Locator.GetShipLogManager().IsFactRevealed("IP_RING_WORLD_X1"))
             {
-                var mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
                 if (!mapSatellite)
                 {
-                    reason = "Game not loaded yet.";
-                    return false;
+                    mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
+                    if (!mapSatellite)
+                    {
+                        reason = "Game not loaded yet.";
+                        return false;
+                    }
                 }
 
                 var isEclipseVisible = eclipseDot > 0.96f;
