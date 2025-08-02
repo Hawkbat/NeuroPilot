@@ -45,6 +45,10 @@ namespace NeuroPilot
                 //ModHelper.MenuHelper.PopupMenuManager.CreateInfoPopup("Neuro API URL was not set. Either set the NEURO_SDK_WS_URL environment variable or set the Neuro API URL in the mod settings.", "OK").Activate();
             }
 
+            GlobalMessenger.AddListener("EnterShip", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("Player has entered the ship", true));
+            GlobalMessenger.AddListener("ExitShip", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("Player has exited the ship", true));
+            GlobalMessenger.AddListener("ShipSystemFailure", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("The ship has been destroyed", false));
+
             OnCompleteSceneLoad(OWScene.TitleScreen, OWScene.TitleScreen);
             LoadManager.OnCompleteSceneLoad += OnCompleteSceneLoad;
         }
@@ -139,10 +143,6 @@ namespace NeuroPilot
             {
                 listener = ship.AddComponent<ShipDestroyListener>();
             }
-
-            GlobalMessenger.AddListener("EnterShip", () => autopilot.OnAutopilotMessage.Invoke("Player has entered the ship", true));
-            GlobalMessenger.AddListener("ExitShip", () => autopilot.OnAutopilotMessage.Invoke("Player has exited the ship", true));
-            GlobalMessenger.AddListener("ShipSystemFailure", () => autopilot.OnAutopilotMessage.Invoke("The ship has been destroyed", false));
 
             autopilot.OnAutopilotMessage.AddListener((msg, silent) =>
             {
@@ -302,6 +302,10 @@ namespace NeuroPilot
                 if (GUILayout.Button("Travel"))
                 {
                     autopilot.TryEngageTravel(dest.ToString(), out error);
+                }
+                if (GUILayout.Button("Crash"))
+                {
+                    autopilot.TryCrash(dest.ToString(), out error);
                 }
                 GUILayout.Label(dest.ToString());
                 if (!string.IsNullOrEmpty(reason))

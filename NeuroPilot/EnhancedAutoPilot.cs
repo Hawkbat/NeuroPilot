@@ -66,6 +66,7 @@ namespace NeuroPilot
         public bool IsTakingOff() => GetCurrentTask() is TakeOffTask;
         public bool IsLanding() => GetCurrentTask() is LandingTask;
         public bool IsEvading() => GetCurrentTask() is EvadeTask;
+        public bool IsCrashing() => GetCurrentTask() is CrashTask;
 
         public IEnumerable<Destination> GetPossibleObstacles() => possibleObstacles;
         public IEnumerable<Destination> GetActiveObstacles() => activeObstacles;
@@ -319,6 +320,37 @@ namespace NeuroPilot
             }
 
             AcceptTask(new EvadeTask(refFrame));
+            error = string.Empty;
+            return true;
+        }
+
+        public bool TryCrash(string destinationName, out string error)
+        {
+            if (IsTraveling()) AbortTask();
+
+            if (!ValidateAutopilotStatus(out error)) return false;
+
+            var destination = Destinations.GetByName(destinationName);
+            if (destination == null)
+            {
+                error = $"Destination '{destinationName}' not found. Valid destinations are: {string.Join(", ", Destinations.GetAllValidNames())}";
+                return false;
+            }
+
+            if (!destination.IsAvailable(out string validationError))
+            {
+                error = $"Destination '{destinationName}' is not currently available: {validationError}";
+                return false;
+            }
+
+            var refFrame = destination.GetReferenceFrame();
+            if (refFrame == null)
+            {
+                error = $"Cannot acquire a lock on destination '{destinationName}'.";
+                return false;
+            }
+
+            AcceptTask(new CrashTask(refFrame));
             error = string.Empty;
             return true;
         }
@@ -587,14 +619,14 @@ namespace NeuroPilot
         private void AcceptTask(AutoPilotTask task, bool silent = false)
         {
             if (taskQueue.Count > 0) AbortTask();
-            if (task is TravelTask travelTask)
+            if (task is TravelTask || task is CrashTask)
             {
                 if ((Destinations.GetShipLocation()?.CanLand() ?? false) || cockpitController._landingManager.IsLanded())
                 {
                     taskQueue.Enqueue(new TakeOffTask(GetCurrentLocationReferenceFrame()));
                 }
                 taskQueue.Enqueue(task);
-                if (travelTask.destination.CanLand())
+                if (task is TravelTask travelTask && travelTask.destination.CanLand())
                 {
                     taskQueue.Enqueue(new LandingTask(travelTask.destination.GetReferenceFrame()));
                 }

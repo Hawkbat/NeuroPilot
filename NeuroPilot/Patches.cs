@@ -323,7 +323,7 @@ namespace NeuroPilot
             if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
                 return;
 
-            if (__instance._autopilot.IsFlyingToDestination())
+            if (__instance._autopilot.IsFlyingToDestination() || autopilot.GetCurrentTask() is CrashTask)
                 __result.z = 1;
             else
                 __result.y = 1;
@@ -428,6 +428,28 @@ namespace NeuroPilot
                         __result = __instance.transform.InverseTransformDirection(tangent);
                         return false;
                     }
+                }
+
+                if (autopilot.IsCrashing())
+                {
+                    ReferenceFrame rfv = ((CrashTask)autopilot.GetCurrentTask()).location;
+                    var task = autopilot.GetCurrentTask();
+
+
+                    Vector3 unclampedThrust = Vector3.zero;
+                    if (rfv != null)
+                    {
+                        Vector3 toTarget = rfv.GetPosition() - __instance._shipBody.GetPosition();
+                        Vector3 relativeVelocity = __instance._shipBody.GetRelativeVelocity(rfv);
+
+                        Vector3 adjustedVelocity = relativeVelocity - Vector3.Project(relativeVelocity, toTarget);
+
+                        unclampedThrust = Vector3.ClampMagnitude(adjustedVelocity + Vector3.ClampMagnitude(toTarget, 1f), 1f);
+                        unclampedThrust = __instance._shipBody.transform.InverseTransformDirection(unclampedThrust);
+                    }
+                    var thrust = Vector3.ClampMagnitude(unclampedThrust, 1f);
+                    __result = thrust;
+                    return false;
                 }
             }
 
