@@ -108,8 +108,8 @@ namespace NeuroPilot
             allowDestrucive = !config.GetSettingsValue<bool>("Prevent Destructive Actions");
             if (!allowDestrucive) 
             {
-                HatchController hatchController = Locator._shipTransform.GetComponentInChildren<HatchController>();
-                if (hatchController._hatchObject.activeSelf && !PlayerState.IsInsideShip()) 
+                HatchController hatchController = Locator._shipTransform?.GetComponentInChildren<HatchController>();
+                if (hatchController != null && hatchController._hatchObject.activeSelf && !PlayerState.IsInsideShip()) 
                 {
                     FindObjectOfType<ShipTractorBeamSwitch>().ActivateTractorBeam();
                     hatchController.OpenHatch();
