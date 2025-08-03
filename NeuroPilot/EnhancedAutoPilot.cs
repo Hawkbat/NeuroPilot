@@ -634,10 +634,6 @@ namespace NeuroPilot
                     taskQueue.Enqueue(new TakeOffTask(GetCurrentLocationReferenceFrame()));
                 }
                 taskQueue.Enqueue(task);
-                if (task is TravelTask travelTask && travelTask.destination.CanLand())
-                {
-                    taskQueue.Enqueue(new LandingTask(travelTask.destination.GetReferenceFrame()));
-                }
             }
             else
             {
@@ -692,6 +688,10 @@ namespace NeuroPilot
             if (IsTakingOff() || IsLanding())
             {
                 cockpitController.ExitLandingMode();
+            }
+            if (GetCurrentTask() is TravelTask travelTask && travelTask.destination.CanLand() && !PlayerState.IsInsideShip())
+            {
+                taskQueue.Enqueue(new LandingTask(travelTask.destination.GetReferenceFrame()));
             }
             taskQueue.Dequeue();
             RunTask();

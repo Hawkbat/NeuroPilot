@@ -166,7 +166,7 @@ namespace NeuroPilot
                 }
             }
             if (OWInput.IsInputMode(InputMode.ShipCockpit | InputMode.LandingCam)) {
-                if (OWInput.IsNewlyPressed(InputLibrary.autopilot) && autopilot.IsLanding())
+                if (OWInput.IsNewlyPressed(InputLibrary.autopilot) && !NeuroPilot.AllowDestructive)
                 {
                     autopilot.TryAbortTravel(out var error);
                 }
@@ -255,6 +255,7 @@ namespace NeuroPilot
             }
 
             __instance._autopilotPrompt.SetVisibility(false);
+            __instance._abortAutopilotPrompt.SetVisibility(EnhancedAutoPilot.GetInstance().IsAutopilotActive() && !NeuroPilot.AllowDestructive);
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(AlignShipWithReferenceFrame), nameof(AlignShipWithReferenceFrame.GetAlignmentDirection))]
