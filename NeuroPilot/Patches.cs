@@ -45,11 +45,9 @@ namespace NeuroPilot
         public static bool ShipTractorBeamSwitch_OnTriggerExit()
         {
             // Dont activate the tractor beam if the hatch is closed
-            if (!Locator._shipTransform.GetComponentInChildren<HatchController>()._hatchObject.activeSelf)
-            {
-                return true;
-            }
-            return false;
+            if (Locator._shipTransform.GetComponentInChildren<HatchController>()._hatchObject.activeSelf)
+                return false;
+            return true;
         }
 
 
@@ -443,7 +441,7 @@ namespace NeuroPilot
 
                 if (autopilot.IsCrashing())
                 {
-                    ReferenceFrame rfv = ((CrashTask)autopilot.GetCurrentTask()).location;
+                    ReferenceFrame rfv = autopilot.GetCurrentDestination().GetReferenceFrame();
                     var task = autopilot.GetCurrentTask();
 
 

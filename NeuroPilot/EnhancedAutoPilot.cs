@@ -40,7 +40,7 @@ namespace NeuroPilot
         }
 
         public Destination GetCurrentDestination() =>
-            (GetCurrentTask() is TravelTask travelTask ? travelTask.destination : null) ?? Destinations.GetByReferenceFrame(autopilot._referenceFrame);
+            (GetCurrentTask() is TravelTask travelTask ? travelTask.destination : GetCurrentTask() is CrashTask crashTask ? crashTask.destination : null) ?? Destinations.GetByReferenceFrame(autopilot._referenceFrame);
 
         public string GetCurrentDestinationName() =>
             GetCurrentDestination()?.ToString() ?? autopilot._referenceFrame?.GetHUDDisplayName() ?? string.Empty;
@@ -348,14 +348,7 @@ namespace NeuroPilot
                 return false;
             }
 
-            var refFrame = destination.GetReferenceFrame();
-            if (refFrame == null)
-            {
-                error = $"Cannot acquire a lock on destination '{destinationName}'.";
-                return false;
-            }
-
-            AcceptTask(new CrashTask(refFrame));
+            AcceptTask(new CrashTask(destination));
             error = string.Empty;
             return true;
         }

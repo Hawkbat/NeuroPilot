@@ -35,10 +35,10 @@ namespace NeuroPilot
         public override string ToString() => $"evade {Destinations.GetByReferenceFrame(location)?.GetName() ?? location.GetHUDDisplayName() ?? "Unknown location"}";
     }
 
-    public class CrashTask(ReferenceFrame location) : AutoPilotTask
+    public class CrashTask(Destination destination) : AutoPilotTask
     {
-        public readonly ReferenceFrame location = location;
+        public readonly Destination destination = destination;
 
-        public override string ToString() => $"travel to {Destinations.GetByReferenceFrame(location)?.GetName() ?? location.GetHUDDisplayName() ?? "Unknown location"}";
+        public override string ToString() => $"travel to {destination}";
     }
 }

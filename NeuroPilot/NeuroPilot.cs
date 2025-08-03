@@ -222,6 +222,7 @@ namespace NeuroPilot
                     new ControlShipHeadlightsAction(),
                     new SpinAction(),
                     new EjectAction(),
+                    new CrashAction(),
                 ];
 
                 NeuroActionHandler.RegisterActions(neuroActions);
