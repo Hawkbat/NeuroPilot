@@ -361,7 +361,7 @@ namespace NeuroPilot
                 return false;
             }
 
-            if (cockpitController._externalLightsOn == on)
+            if (cockpitController._headlight.IsPowered())
             {
                 error = $"Ship headlights are already {(on ? "on" : "off")}.";
                 return false;
@@ -369,6 +369,8 @@ namespace NeuroPilot
 
             cockpitController._externalLightsOn = on;
             cockpitController.SetEnableShipLights(on);
+            if (!PlayerState._insideShip)
+                cockpitController._headlight.SetPowered(on);
 
             error = string.Empty;
             return true;
