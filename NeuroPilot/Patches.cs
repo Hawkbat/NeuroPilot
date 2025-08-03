@@ -280,7 +280,7 @@ namespace NeuroPilot
                     __result = rf.GetPosition() - __instance._owRigidbody.GetWorldCenterOfMass();
                 }
             }
-            else if (autopilot.IsTraveling())
+            else if (autopilot.IsTraveling() || autopilot.IsCrashing())
             {
                 var rf = autopilot.GetCurrentDestination()?.GetReferenceFrame();
                 if (rf != null)
