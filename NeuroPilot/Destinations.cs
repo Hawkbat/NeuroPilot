@@ -90,19 +90,14 @@ namespace NeuroPilot
 
     public abstract class Destination(string name, float innerRadius, float outerRadius)
     {
-        protected string name = name;
-        protected readonly float innerRadius = innerRadius;
-        protected readonly float outerRadius = outerRadius;
+        public string Name { get; private set; } = name;
+        public float InnerRadius { get; } = innerRadius;
+        public float OuterRadius { get; } = outerRadius;
 
-        public virtual string GetName() => name;
-        public float GetInnerRadius() => innerRadius;
-        public float GetOuterRadius() => outerRadius;
+        protected virtual string GetName() => Name;
+        public void UpdateName() => Name = GetName();
 
-        public virtual string GetNewName() => GetName();
-        public void UpdateName() => name = GetNewName();
-
-        public override string ToString() => GetName();
-
+        public override string ToString() => Name;
         public abstract bool CanLand();
 
         public abstract ReferenceFrame GetReferenceFrame();
