@@ -223,6 +223,7 @@ namespace NeuroPilot
                     new SpinAction(),
                     new EjectAction(),
                     new CrashAction(),
+                    new OrientAction(),
                 ];
 
                 NeuroActionHandler.RegisterActions(neuroActions);
@@ -303,6 +304,7 @@ namespace NeuroPilot
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Spin") && autopilot.Spin(out error)) { }
             if (GUILayout.Button("Eject") && autopilot.Eject(out error)) { }
+            if (GUILayout.Button("Look Nova") && autopilot.TryOrient("Exploding Star", out error)) { }
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
@@ -321,6 +323,10 @@ namespace NeuroPilot
                 if (GUILayout.Button("Crash"))
                 {
                     autopilot.TryCrash(dest.ToString(), out error);
+                }
+                if (GUILayout.Button("Look"))
+                {
+                    autopilot.TryOrient(dest.ToString(), out error);
                 }
                 GUILayout.Label(dest.ToString());
                 if (!string.IsNullOrEmpty(reason))
@@ -353,7 +359,6 @@ namespace NeuroPilot
 
     public class ShipDestroyListener : MonoBehaviour
     {
-
         void OnDisable()
         {
             var autopilot = EnhancedAutoPilot.GetInstance();

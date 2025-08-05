@@ -7,6 +7,16 @@ namespace NeuroPilot
     [HarmonyPatch]
     public static class Patches
     {
+
+        [HarmonyPrefix, HarmonyPatch(typeof(QuantumMoon), nameof(QuantumMoon.ChangeQuantumState))]
+        public static void QuantumMoon_ChangeQuantumState(ref bool __result)
+        {
+            // Abort autopilot if the moon moves
+            var autopilot = EnhancedAutoPilot.GetInstance();
+            if (autopilot.GetCurrentDestination() is QuantumMoonDestination)
+                autopilot.TryAbortTravel(out _);
+        }
+
         [HarmonyPrefix, HarmonyPatch(typeof(ReferenceFrame), nameof(ReferenceFrame.GetAllowAutopilot))]
         public static bool ReferenceFrame_GetAllowAutopilot(ref bool __result)
         {
@@ -292,7 +302,7 @@ namespace NeuroPilot
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(AlignWithDirection), nameof(AlignWithDirection.UpdateRotation))]
-        public static bool AlignShipWithReferenceFrame_UpdateRotation(AlignWithDirection __instance, Vector3 currentDirection, Vector3 targetDirection, float slerpRate, bool usePhysics)
+        public static bool AlignWithDirection_UpdateRotation(AlignWithDirection __instance, Vector3 currentDirection, Vector3 targetDirection, float slerpRate, bool usePhysics)
         {
             if (!(__instance is AlignShipWithReferenceFrame alignShip))
                 return true;

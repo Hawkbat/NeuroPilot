@@ -236,6 +236,17 @@ namespace NeuroPilot
             return "The Quantum Moon";
         }
 
+        public override bool IsAvailable(out string reason)
+        {
+            if (!base.IsAvailable(out reason)) return false;
+            if (Locator.GetQuantumMoon().GetStateIndex() == 5)
+            {
+                reason = $"Cannot locate {GetName()}.";
+                return false;
+            }
+            return true;
+        }
+
         public override bool CanLand() => true;
     }
 

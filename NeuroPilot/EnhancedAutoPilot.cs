@@ -22,6 +22,7 @@ namespace NeuroPilot
         Autopilot autopilot;
         SectorDetector shipSectorDetector;
         HatchController hatchController;
+        StarfieldController starfield;
 
         readonly Queue<AutoPilotTask> taskQueue = new();
         NotificationData taskNotification;
@@ -83,6 +84,7 @@ namespace NeuroPilot
             autopilot.OnArriveAtDestination += Autopilot_OnArriveAtDestination;
             autopilot.OnAlreadyAtDestination += Autopilot_OnAlreadyAtDestination;
             autopilot.OnAbortAutopilot += Autopilot_OnAbortAutopilot;
+            starfield = GameObject.Find("Starfield").GetComponent<StarfieldController>();
 
             GlobalMessenger.AddListener("EnterShip", OnEnterShip);
         }
@@ -252,7 +254,7 @@ namespace NeuroPilot
             if (autopilot.IsFlyingToDestination()) autopilot.Abort();
             if (IsAutopilotActive()) AbortTask();
 
-            OnAutopilotMessage.Invoke("Autopilot has been manually aborted.", true);
+            OnAutopilotMessage.Invoke("Autopilot has been aborted.", true);
 
             error = string.Empty;
             return true;
@@ -496,6 +498,65 @@ namespace NeuroPilot
             return true;
         }
 
+        public bool TryOrient(string destinationName, out string error)
+        {
+            if (!ValidateAutopilotStatus(out error)) return false;
+            if (!(cockpitController._thrustController._isRotationalThrustEnabled && cockpitController._thrustController._shipAlignment.CheckAlignmentRequirements()))
+            {
+                error = "Ship has recently touched the ground and cannot turn.";
+                return false;
+            }
+            if (IsTakingOff() || IsLanding())
+            {
+                error = "Ship cannot orient while taking off or landing.";
+                return false;
+            }
+
+            if ("Exploding Star".Equals(destinationName))
+            {
+                for (int i = starfield._lastAliveStarIndex; i >= 0; i--)
+                {
+                    var star = starfield._starfieldData.starGroups[starfield._orderedStarIndices[i].groupIndex].stars[starfield._orderedStarIndices[i].starIndex];
+
+                    if (star.supernova)
+                    {
+                        FaceDirection(star.position);
+                        error = string.Empty;
+                        return true;
+                    }
+                }
+                error = "Stars have not started going nova yet, try later in the loop!";
+                return false;
+            }
+
+            var destination = Destinations.GetByName(destinationName);
+            if (destination == null)
+            {
+                error = $"Destination '{destinationName}' not found. Valid destinations are: {string.Join(", ", Destinations.GetAllValidNames())}";
+                return false;
+            }
+
+            if (!destination.IsAvailable(out string validationError))
+            {
+                error = $"Destination '{destinationName}' is not currently available: {validationError}";
+                return false;
+            }
+
+            var refFrame = destination.GetReferenceFrame();
+            if (refFrame == null)
+            {
+                error = $"Cannot acquire a lock on destination '{destinationName}'.";
+                return false;
+            }
+
+            FaceDirection(refFrame.GetPosition() - Locator.GetShipBody().GetWorldCenterOfMass());
+            taskNotification = new NotificationData(NotificationTarget.All, $"Autopilot Facing: {GetCurrentDestination()}".ToUpper());
+            NotificationManager.SharedInstance.PostNotification(taskNotification);
+
+            error = string.Empty;
+            return true;
+        }
+
         public bool IsSpinning()
         {
             return spinTime > 0;
@@ -651,7 +712,27 @@ namespace NeuroPilot
                 OnAutopilotMessage.Invoke($"Autopilot engaged to {GetCurrentTask().ToString()}", true);
                 taskNotification = new NotificationData(NotificationTarget.All, $"Autopilot Engaged: {GetCurrentTask()}".ToUpper());
                 NotificationManager.SharedInstance.PostNotification(taskNotification, true);
+                if (GetCurrentTask() is TravelTask || GetCurrentTask() is CrashTask)
+                    FaceDirection((GetCurrentDestination().GetReferenceFrame().GetPosition() - Locator.GetShipBody().GetWorldCenterOfMass()));
             }
+        }
+
+        private void FaceDirection(Vector3 targetDir)
+        {
+            var shipBody = Locator.GetShipBody();
+            var currentDir = shipBody.transform.forward;
+            targetDir.Normalize();
+
+
+            Vector3 axis = Vector3.Cross(currentDir, targetDir);
+            float sin = axis.magnitude;
+            float cos = Vector3.Dot(currentDir, targetDir);
+
+            float angleRad = Mathf.Atan2(sin, cos);
+
+            Vector3 desiredAV = axis / sin * angleRad;
+
+            shipBody.AddAngularVelocityChange(desiredAV - shipBody.GetAngularVelocity());
         }
 
         bool autopilotAbortDebounce;
