@@ -11,10 +11,7 @@ namespace NeuroPilot.Actions
 
         protected override string Description => "Uses the ship's autopilot to land at the current location.";
 
-        protected override JsonSchema Schema => new()
-        {
-            Type = JsonSchemaType.Object,
-        };
+        protected override JsonSchema Schema => new();
 
         protected override ExecutionResult Validate(ActionJData actionData)
         {

@@ -7,14 +7,11 @@ namespace NeuroPilot.Actions
 {
     public class SpinAction : NeuroAction
     {
-        public override string Name => "spin";
+        public override string Name => "spin_ship";
 
         protected override string Description => "Spin the ship.";
 
-        protected override JsonSchema Schema => new()
-        {
-            Type = JsonSchemaType.Object,
-        };
+        protected override JsonSchema Schema => new();
 
         protected override ExecutionResult Validate(ActionJData actionData)
         {

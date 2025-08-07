@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace NeuroPilot
 {
-    public class NeuroPilot : ModBehaviour //TODO all nulls //TODO ?'s //TODO sort all //TODO orbit command //TODO instruments while not in pilots seat
+    public class NeuroPilot : ModBehaviour //TODO all nulls //TODO ?'s //TODO sort all //TODO orbit command //TODO instruments while not in pilots seat //TODO Probe destination destroyed first loop
     {
         internal static NeuroPilot instance;
 

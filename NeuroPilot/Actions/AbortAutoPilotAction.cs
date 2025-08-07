@@ -11,10 +11,7 @@ namespace NeuroPilot.Actions
 
         protected override string Description => "Deactivates the ship's autopilot while in flight, returning control to the player.";
 
-        protected override JsonSchema Schema => new()
-        {
-            Type = JsonSchemaType.Object,
-        };
+        protected override JsonSchema Schema => new();
 
         protected override ExecutionResult Validate(ActionJData actionData)
         {

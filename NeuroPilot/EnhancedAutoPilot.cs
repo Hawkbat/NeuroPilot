@@ -159,7 +159,7 @@ namespace NeuroPilot
             {
                 cockpitController._thrustController.enabled = !IsAutopilotDamaged();
                 cockpitController._thrustController._shipAlignment.enabled = IsTakingOff() || IsLanding() || ((IsTraveling() || IsCrashing()) && !PlayerState.IsInsideShip()); //TODO neccesary?
-                cockpitController._thrustController._shipAlignment._localAlignmentAxis = (IsTakingOff() || IsLanding()) ? Vector3.down : Vector3.forward;
+                cockpitController._thrustController._shipAlignment._localAlignmentAxis = (IsTraveling() || IsCrashing()) ? Vector3.forward : Vector3.down;
             }
         }
 

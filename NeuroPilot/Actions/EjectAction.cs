@@ -9,12 +9,9 @@ namespace NeuroPilot.Actions
     {
         public override string Name => "eject";
 
-        protected override string Description => "Eject the player! This will also disable autopilot for this loop.";
+        protected override string Description => "Eject the player from the ship! This will also disable autopilot for this loop.";
 
-        protected override JsonSchema Schema => new()
-        {
-            Type = JsonSchemaType.Object,
-        };
+        protected override JsonSchema Schema => new();
 
         protected override ExecutionResult Validate(ActionJData actionData)
         {

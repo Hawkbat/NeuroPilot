@@ -10,9 +10,9 @@ namespace NeuroPilot.Actions
     {
         const string targetPropName = "target";
 
-        public override string Name => "crash";
+        public override string Name => "crash_ship";
 
-        protected override string Description => "Crashes directly into the target. Likely destroying the autopilot and killing the player.";
+        protected override string Description => "Crashes the ship directly into the target. Likely destroying the autopilot and killing the player.";
 
         protected override JsonSchema Schema => new()
         {

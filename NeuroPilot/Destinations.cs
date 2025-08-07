@@ -367,6 +367,7 @@ namespace NeuroPilot
         {
             base.SetUp();
             controller = GameObject.FindObjectsOfType<NomaiShuttleController>().FirstOrDefault(c => c.GetID() == shuttleID);
+            rfv = controller._shuttleBody.transform.Find("RF_Volume").GetComponent<ReferenceFrameVolume>();
         }
     }
 

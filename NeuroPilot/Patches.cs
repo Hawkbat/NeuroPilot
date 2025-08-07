@@ -85,7 +85,7 @@ namespace NeuroPilot
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(ReferenceFrameTracker), nameof(ReferenceFrameTracker.UntargetReferenceFrame)), HarmonyPatch(new Type[] { typeof(bool) })]
-        public static void ReferenceFrameTracker_UntargetReferenceFrame(bool playAudio) //TODO can i move this to a listener?
+        public static void ReferenceFrameTracker_UntargetReferenceFrame(bool playAudio) //TODO can move this to a listener?
         {
             // tell neuro that destination was untargeted
             var targetedDestination = Destinations.GetByType<TargetedDestination>();
@@ -94,8 +94,8 @@ namespace NeuroPilot
                     $"{Destinations.GetByType<TargetedDestination>().GetDestinationName()} was untargeted", true);
         }
 
-        [HarmonyPrefix, HarmonyPatch(typeof(NomaiShuttleController), nameof(NomaiShuttleController.UnsuspendShuttle))]
-        public static void NomaiShuttleController_UnsuspendShuttle(NomaiShuttleController __instance) //TODO Runs about a million times
+        [HarmonyPrefix, HarmonyPatch(typeof(GravityCannonController), nameof(GravityCannonController.MoveShuttleToSocket))]
+        public static void GravityCannonController_MoveShuttleToSocket(GravityCannonController __instance)
         {
             // tell neuro that the shuttle exists
             if (Locator.GetShipLogManager() &&
@@ -268,6 +268,7 @@ namespace NeuroPilot
             if (autopilot.IsManualAllowed())
             {
                 // If manual is allowed, use the original method
+                __instance._localAlignmentAxis = Vector3.down;
                 return true;
             }
             __result = __instance._currentDirection;

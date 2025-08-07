@@ -8,14 +8,11 @@ namespace NeuroPilot.Actions
 {
     public class StatusAction : NeuroAction
     {
-        public override string Name => "status";
+        public override string Name => "autopilot_status";
 
         protected override string Description => "Checks the current status of the ship and lists avalible destinations.";
 
-        protected override JsonSchema Schema => new()
-        {
-            Type = JsonSchemaType.Object,
-        };
+        protected override JsonSchema Schema => new();
 
         protected override ExecutionResult Validate(ActionJData actionData)
         {

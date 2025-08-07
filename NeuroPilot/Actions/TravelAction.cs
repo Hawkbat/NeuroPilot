@@ -10,7 +10,7 @@ namespace NeuroPilot.Actions
     {
         const string destinationPropName = "destination";
 
-        public override string Name => "engage_travel";
+        public override string Name => "travel";
 
         protected override string Description => "Activates the ship's autopilot to takeoff and fly to a specific destination in the solar system.";
 
