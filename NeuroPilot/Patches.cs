@@ -5,8 +5,18 @@ using UnityEngine;
 namespace NeuroPilot
 {
     [HarmonyPatch]
-    public static class Patches
+    public static class Patches //TODO can we not repeat the whole methods in some of these
     {
+
+        [HarmonyPrefix, HarmonyPatch(typeof(QuantumMoon), nameof(QuantumMoon.ChangeQuantumState))]
+        public static void QuantumMoon_ChangeQuantumState(ref bool __result)
+        {
+            // Abort autopilot if the moon moves
+            var autopilot = EnhancedAutoPilot.GetInstance();
+            if (autopilot.GetCurrentDestination() is QuantumMoonDestination)
+                autopilot.TryAbortTravel(out _);
+        }
+
         [HarmonyPrefix, HarmonyPatch(typeof(ReferenceFrame), nameof(ReferenceFrame.GetAllowAutopilot))]
         public static bool ReferenceFrame_GetAllowAutopilot(ref bool __result)
         {
@@ -21,14 +31,14 @@ namespace NeuroPilot
             var destination = Destinations.GetByReferenceFrame(__instance);
             if (destination != null)
             {
-                __result = destination.GetInnerRadius();
+                __result = destination.InnerRadius;
                 return false;
             }
             return true;
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(Locator), nameof(Locator.GetReferenceFrame))]
-        public static bool Locator_GetReferenceFrame(ref ReferenceFrame __result)
+        public static bool Locator_GetReferenceFrame(ref ReferenceFrame __result) //TODO is this neccesary
         {
             // Override reference frame used as the target for landing mode, match velocity, etc.
             // Surely this will have no negative ramifications
@@ -37,7 +47,7 @@ namespace NeuroPilot
                 // If manual is allowed, use the original method
                 return true;
             }
-            __result = EnhancedAutoPilot.GetInstance().GetCurrentLocationReferenceFrame() ?? Locator._rfTracker.GetReferenceFrame();
+            __result = EnhancedAutoPilot.GetInstance()?.GetCurrentDestination()?.GetReferenceFrame() ?? Locator._rfTracker.GetReferenceFrame();
             return false;
         }
 
@@ -74,16 +84,8 @@ namespace NeuroPilot
                     $"The autopilot module has been damaged. There is a problem with your AI.", false);
         }
 
-        [HarmonyPostfix, HarmonyPatch(typeof(ReferenceFrameTracker), nameof(ReferenceFrameTracker.TargetReferenceFrame))]
-        public static void ReferenceFrameTracker_TargetReferenceFrame(ReferenceFrame frame)
-        {
-            // tell neuro that a destination was targeted
-            EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke(
-                $"{Destinations.GetByType<TargetedDestination>().GetDestinationName()} was targeted", true);
-        }
-
         [HarmonyPrefix, HarmonyPatch(typeof(ReferenceFrameTracker), nameof(ReferenceFrameTracker.UntargetReferenceFrame)), HarmonyPatch(new Type[] { typeof(bool) })]
-        public static void ReferenceFrameTracker_UntargetReferenceFrame(bool playAudio)
+        public static void ReferenceFrameTracker_UntargetReferenceFrame(bool playAudio) //TODO can i move this to a listener?
         {
             // tell neuro that destination was untargeted
             var targetedDestination = Destinations.GetByType<TargetedDestination>();
@@ -93,7 +95,7 @@ namespace NeuroPilot
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(NomaiShuttleController), nameof(NomaiShuttleController.UnsuspendShuttle))]
-        public static void NomaiShuttleController_UnsuspendShuttle(NomaiShuttleController __instance)
+        public static void NomaiShuttleController_UnsuspendShuttle(NomaiShuttleController __instance) //TODO Runs about a million times
         {
             // tell neuro that the shuttle exists
             if (Locator.GetShipLogManager() &&
@@ -268,13 +270,11 @@ namespace NeuroPilot
                 // If manual is allowed, use the original method
                 return true;
             }
-
             __result = __instance._currentDirection;
-
             if (autopilot.IsTakingOff() || autopilot.IsLanding())
             {
                 var task = EnhancedAutoPilot.GetInstance().GetCurrentTask();
-                ReferenceFrame rf = autopilot.GetLandingReferenceFrame();
+                ReferenceFrame rf = autopilot.GetCurrentDestination().GetReferenceFrame();
                 if (rf != null)
                 {
                     __result = rf.GetPosition() - __instance._owRigidbody.GetWorldCenterOfMass();
@@ -292,7 +292,7 @@ namespace NeuroPilot
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(AlignWithDirection), nameof(AlignWithDirection.UpdateRotation))]
-        public static bool AlignShipWithReferenceFrame_UpdateRotation(AlignWithDirection __instance, Vector3 currentDirection, Vector3 targetDirection, float slerpRate, bool usePhysics)
+        public static bool AlignWithDirection_UpdateRotation(AlignWithDirection __instance, Vector3 currentDirection, Vector3 targetDirection, float slerpRate, bool usePhysics)
         {
             if (!(__instance is AlignShipWithReferenceFrame alignShip))
                 return true;
@@ -375,7 +375,7 @@ namespace NeuroPilot
                 // If the ship is in autopilot mode, return the autopilot's thrust vector
                 if (autopilot.IsTakingOff() || autopilot.IsLanding())
                 {
-                    ReferenceFrame rfv = autopilot.GetLandingReferenceFrame();
+                    ReferenceFrame rfv = autopilot.GetCurrentDestination().GetReferenceFrame();
                     var currentVelocity = autopilot.GetCurrentLandingVelocity();
                     var targetVelocity = autopilot.GetTargetLandingVelocity();
                     var smoothingRange = 20f;
@@ -404,7 +404,7 @@ namespace NeuroPilot
 
                 if (autopilot.IsEvading())
                 {
-                    var target = ((EvadeTask)autopilot.GetCurrentTask()).location;
+                    var target = ((EvadeTask)autopilot.GetCurrentTask()).Destination.GetReferenceFrame();
                     if (target != null)
                     {
                         Vector3 tangent;

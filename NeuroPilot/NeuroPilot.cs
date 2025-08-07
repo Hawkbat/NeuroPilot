@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace NeuroPilot
 {
-    public class NeuroPilot : ModBehaviour
+    public class NeuroPilot : ModBehaviour //TODO all nulls //TODO ?'s //TODO sort all //TODO orbit command //TODO instruments while not in pilots seat
     {
         internal static NeuroPilot instance;
 
@@ -22,6 +22,14 @@ namespace NeuroPilot
         bool debugMode;
         bool manualOverride;
         bool allowDestrucive;
+
+        static Transform mapSatellite = null;
+        public static Transform GetMapSatellite() {
+            if (!mapSatellite)
+                mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
+
+            return mapSatellite;
+        }
 
         protected void Awake()
         {
@@ -36,25 +44,27 @@ namespace NeuroPilot
 
             string neuroApiUrl = ModHelper.Config.GetSettingsValue<string>("Neuro API URL");
             if (!string.IsNullOrEmpty(neuroApiUrl))
-            {
                 Environment.SetEnvironmentVariable("NEURO_SDK_WS_URL", neuroApiUrl);
-            }
+
             NeuroSdk.NeuroSdkSetup.Initialize("Outer Wilds");
 
             if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NEURO_SDK_WS_URL")))
-            {
                 ModHelper.Console.WriteLine($"Neuro API URL was not set. Either set the NEURO_SDK_WS_URL environment variable or set the Neuro API URL in the mod settings.", MessageType.Error);
-                //ModHelper.MenuHelper.PopupMenuManager.CreateInfoPopup("Neuro API URL was not set. Either set the NEURO_SDK_WS_URL environment variable or set the Neuro API URL in the mod settings.", "OK").Activate();
-            }
 
             Context.Send("Once the player enters the ship for the first time, you will have full control for the rest of the loop unless the ship is destroyed. Be sure to take advantage of your commands. Experiment and have fun!");
 
-            GlobalMessenger.AddListener("EnterShip", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("Player has entered the ship", true));
-            GlobalMessenger.AddListener("ExitShip", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("Player has exited the ship", true));
-            GlobalMessenger.AddListener("ShipSystemFailure", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("The ship has been destroyed", false));
+            RegisterListeners();
 
             OnCompleteSceneLoad(OWScene.TitleScreen, OWScene.TitleScreen);
             LoadManager.OnCompleteSceneLoad += OnCompleteSceneLoad;
+        }
+
+        private void RegisterListeners()
+        {
+            GlobalMessenger.AddListener("EnterShip", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("Player has entered the ship", true));
+            GlobalMessenger.AddListener("ExitShip", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("Player has exited the ship", true));
+            GlobalMessenger.AddListener("ShipSystemFailure", () => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("The ship has been destroyed", false));
+            GlobalMessenger<ReferenceFrame>.AddListener("TargetReferenceFrame", _ => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke($"{Destinations.GetByType<TargetedDestination>().GetDestinationName()} was targeted", true));
         }
 
         protected void Update()
@@ -66,26 +76,21 @@ namespace NeuroPilot
             else CleanUpActions();
         }
 
-        Transform mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
+        bool strangerdiscovered;
 
-        public void IsStrangerNewlyAvailable()
+        public void IsStrangerNewlyAvailable() //TODO allow without at sattelite? //TODO dont use strangerdiscovered
         {
-            if (!Destinations.GetByType<StrangerDestination>().GetName().Equals("Nothing"))
+            if (!Destinations.GetByType<StrangerDestination>().IsAvailable(out _))
                 return;
 
-            var ringWorld = Locator.GetAstroObject(AstroObject.Name.RingWorld)?.transform;
-            var sun = Locator.GetAstroObject(AstroObject.Name.Sun)?.transform;
+            if (strangerdiscovered)
+                return;
+
+            var ringWorld = Locator._ringWorld?.transform;
+            var sun = Locator.GetSunTransform();
             var ship = Locator.GetShipTransform();
 
-            if (!ringWorld || !sun || !ship)
-                return;
-
-            if (!mapSatellite) {
-                mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
-                if (mapSatellite == null) return;
-            }
-
-            var isNearMapSatellite = Vector3.Distance(ship.position, mapSatellite.position) < 100f;
+            var isNearMapSatellite = Vector3.Distance(ship.position, mapSatellite.position) < 200f;
 
             if (!isNearMapSatellite)
                 return;
@@ -99,6 +104,7 @@ namespace NeuroPilot
             CleanUpActions();
             SetUpActions();
             EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("A \"Dark shadow over the sun\" has appeared. You should probably travel to it!", false);
+            strangerdiscovered = true;
         }
 
         public override void Configure(IModConfig config)
@@ -106,14 +112,14 @@ namespace NeuroPilot
             debugMode = config.GetSettingsValue<bool>("Debug Mode");
             manualOverride = config.GetSettingsValue<bool>("Manual Override");
             allowDestrucive = !config.GetSettingsValue<bool>("Prevent Destructive Actions");
-            if (!allowDestrucive) 
+            if (allowDestrucive)
+                return;
+
+            HatchController hatchController = Locator._shipTransform?.GetComponentInChildren<HatchController>();
+            if (hatchController && hatchController._hatchObject.activeSelf && !PlayerState.IsInsideShip()) 
             {
-                HatchController hatchController = Locator._shipTransform?.GetComponentInChildren<HatchController>();
-                if (hatchController != null && hatchController._hatchObject.activeSelf && !PlayerState.IsInsideShip()) 
-                {
-                    FindObjectOfType<ShipTractorBeamSwitch>().ActivateTractorBeam();
-                    hatchController.OpenHatch();
-                }
+                FindObjectOfType<ShipTractorBeamSwitch>().ActivateTractorBeam();
+                hatchController.OpenHatch();
             }
         }
 
@@ -131,32 +137,21 @@ namespace NeuroPilot
             }
 
             var probeBody = GameObject.Find("NomaiProbe_Body");
-            if (probeBody != null) AddReferenceFrame(probeBody, 300, 5, 15000f);
-            else
-            {
-                ModHelper.Console.WriteLine("NomaiProbe_Body not found!", MessageType.Error);
-            }
+            if (probeBody) AddReferenceFrame(probeBody, 300, 5, 15000f);
+            else ModHelper.Console.WriteLine("NomaiProbe_Body not found!", MessageType.Error);
 
             Destinations.SetUp();
 
             var autopilot = EnhancedAutoPilot.GetInstance();
 
-            var anglerFishExhibit = GameObject.Find("TimberHearth_Body/Sector_TH/Sector_Village/Sector_Observatory/Interactables_Observatory/AnglerFishExhibit/InteractVolume");
-            if (anglerFishExhibit != null)
-            {
-                var interaction = anglerFishExhibit.GetComponent<InteractVolume>();
-                if (interaction != null)
-                {
-                    ((SingleInteractionVolume)interaction).OnPressInteract += () => autopilot.OnAutopilotMessage.Invoke("Oh look its Ernesto the anglerfish!", false);
-                }
-            }
+            var anglerFishinteraction = GameObject.Find("TimberHearth_Body/Sector_TH/Sector_Village/Sector_Observatory/Interactables_Observatory/AnglerFishExhibit/InteractVolume")?.GetComponent<InteractVolume>();
+            if (anglerFishinteraction)
+                ((SingleInteractionVolume)anglerFishinteraction).OnPressInteract += () => autopilot.OnAutopilotMessage.Invoke("Oh look its Ernesto the anglerfish!", false);
 
-            var ship = GameObject.Find("Ship_Body");
+            var ship = GameObject.Find("Ship_Body").gameObject;
             var listener = ship.GetComponent<ShipDestroyListener>();
-            if (listener == null)
-            {
+            if (!listener)
                 listener = ship.AddComponent<ShipDestroyListener>();
-            }
 
             autopilot.OnAutopilotMessage.AddListener((msg, silent) =>
             {
@@ -167,17 +162,19 @@ namespace NeuroPilot
 
         public static ReferenceFrameVolume AddReferenceFrame(GameObject obj, float radius, float minTargetRadius, float maxTargetRadius)
         {
-            obj.GetAttachedOWRigidbody().SetIsTargetable(false);
             var go = new GameObject("RFVolume");
-            go.transform.parent = obj.transform;
+            obj.GetAttachedOWRigidbody().SetIsTargetable(false);
+            go.transform.SetParent(obj.transform, false);
             go.transform.localPosition = Vector3.zero;
             go.layer = LayerMask.NameToLayer("ReferenceFrameVolume");
             go.SetActive(false);
 
             var col = go.AddComponent<SphereCollider>();
             col.isTrigger = true;
-            col.radius = radius;
-            var rf = new ReferenceFrame(obj.GetAttachedOWRigidbody())
+            col.radius = 0f;
+
+            var rfv = go.AddComponent<ReferenceFrameVolume>();
+            rfv._referenceFrame = new ReferenceFrame(obj.GetComponent<OWRigidbody>())
             {
                 _minSuitTargetDistance = minTargetRadius,
                 _maxTargetDistance = maxTargetRadius,
@@ -187,22 +184,17 @@ namespace NeuroPilot
                 _matchAngularVelocity = true,
                 _minMatchAngularVelocityDistance = 70,
                 _maxMatchAngularVelocityDistance = 400,
-                _bracketsRadius = radius * 0.5f
+                _bracketsRadius = radius * 0.5f,
+                _useCenterOfMass = false,
+                _localPosition = Vector3.zero,
             };
 
-            var rfv = go.AddComponent<ReferenceFrameVolume>();
-            rfv._referenceFrame = rf;
             rfv._minColliderRadius = minTargetRadius;
             rfv._maxColliderRadius = radius;
             rfv._isPrimaryVolume = false;
             rfv._isCloseRangeVolume = false;
 
-            rf._useCenterOfMass = false;
-            rf._localPosition = Vector3.zero;
-            go.transform.localPosition = Vector3.zero;
-
             go.SetActive(true);
-
             return rfv;
         }
 
@@ -211,7 +203,7 @@ namespace NeuroPilot
             if (neuroActions == null)
             {
                 Destinations.UpdateNames();
-                neuroActions = [
+                neuroActions = [ //TODO only register avalible ones
                     new TravelAction(),
                     new TakeOffAction(),
                     new LandAction(),
@@ -223,6 +215,7 @@ namespace NeuroPilot
                     new SpinAction(),
                     new EjectAction(),
                     new CrashAction(),
+                    new OrientAction(),
                 ];
 
                 NeuroActionHandler.RegisterActions(neuroActions);
@@ -233,16 +226,17 @@ namespace NeuroPilot
 
         public void CleanUpActions()
         {
-            if (neuroActions != null)
-            {
-                NeuroActionHandler.UnregisterActions(neuroActions);
-                if ((EnhancedAutoPilot.GetInstance()?.IsAutopilotDamaged() ?? true) && TimeLoop.GetSecondsRemaining() > 0)
-                    Context.Send("There is a problem with your AI. Autopilot control is not available.");
-                else
-                    Context.Send("Autopilot control is temporarily unavailable.");
-                ModHelper.Console.WriteLine($"Unregistered {neuroActions.Length} neuro actions.");
-                neuroActions = null;
-            }
+            strangerdiscovered = false;
+            if (neuroActions == null)
+                return;
+
+            NeuroActionHandler.UnregisterActions(neuroActions);
+            if ((EnhancedAutoPilot.GetInstance()?.IsAutopilotDamaged() ?? true) && TimeLoop.GetSecondsRemaining() > 0)
+                Context.Send("There is a problem with your AI. Autopilot control is not available.");
+            else
+                Context.Send("Autopilot control is temporarily unavailable.");
+            ModHelper.Console.WriteLine($"Unregistered {neuroActions.Length} neuro actions.");
+            neuroActions = null;
         }
 
         string error;
@@ -263,8 +257,8 @@ namespace NeuroPilot
 
             GUILayout.Label($"Neuro Actions Active: {neuroActions != null}");
 
-            GUILayout.Label($"Player Location: {Destinations.GetPlayerLocation()?.GetName() ?? "Outer Space"}");
-            GUILayout.Label($"Ship Location: {Destinations.GetShipLocation()?.GetName() ?? "Outer Space"}");
+            GUILayout.Label($"Player Location: {Destinations.GetPlayerLocation()?.Name ?? "Outer Space"}");
+            GUILayout.Label($"Ship Location: {Destinations.GetShipLocation()?.Name ?? "Outer Space"}");
             GUILayout.Label($"Landing Velocity: {autopilot.GetCurrentLandingVelocity():F3} / {autopilot.GetTargetLandingVelocity():F3}");
 
             GUILayout.Label("Task Queue:");
@@ -275,7 +269,7 @@ namespace NeuroPilot
 
             GUILayout.Space(20f);
 
-            GUI.enabled = autopilot.GetCurrentLocationReferenceFrame() != null;
+            GUI.enabled = autopilot.GetCurrentLocation() != null;
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Take Off") && autopilot.TryTakeOff(out error)) { }
             GUILayout.FlexibleSpace();
@@ -303,10 +297,11 @@ namespace NeuroPilot
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Spin") && autopilot.Spin(out error)) { }
             if (GUILayout.Button("Eject") && autopilot.Eject(out error)) { }
+            if (GUILayout.Button("Look Nova") && autopilot.TryOrient("Exploding Star", out error)) { }
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
-            foreach (var dest in Destinations.GetAll())
+            foreach (var dest in Destinations.GetRegistered())
             {
                 GUILayout.BeginHorizontal();
                 if (!dest.IsAvailable(out string reason)) GUI.enabled = false;
@@ -321,6 +316,10 @@ namespace NeuroPilot
                 if (GUILayout.Button("Crash"))
                 {
                     autopilot.TryCrash(dest.ToString(), out error);
+                }
+                if (GUILayout.Button("Look"))
+                {
+                    autopilot.TryOrient(dest.ToString(), out error);
                 }
                 GUILayout.Label(dest.ToString());
                 if (!string.IsNullOrEmpty(reason))
@@ -353,7 +352,6 @@ namespace NeuroPilot
 
     public class ShipDestroyListener : MonoBehaviour
     {
-
         void OnDisable()
         {
             var autopilot = EnhancedAutoPilot.GetInstance();

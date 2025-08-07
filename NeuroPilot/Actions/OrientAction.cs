@@ -1,25 +1,27 @@
 ﻿using Cysharp.Threading.Tasks;
+using HarmonyLib;
 using NeuroSdk.Actions;
 using NeuroSdk.Json;
 using NeuroSdk.Websocket;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace NeuroPilot.Actions
 {
-    public class EvadeAction : NeuroAction<string>
+    public class OrientAction : NeuroAction<string>
     {
         const string targetPropName = "target";
 
-        public override string Name => "evade";
+        public override string Name => "orient";
 
-        protected override string Description => "Uses the ship's autopilot to maneuver away from another object, aborting any other autopilot procedure.";
+        protected override string Description => "Face the ship towards a given object. Or one of those extra bright stars. Cannot be used while landed.";
 
         protected override JsonSchema Schema => new()
         {
             Type = JsonSchemaType.Object,
             Required = [targetPropName],
             Properties = new Dictionary<string, JsonSchema> {
-                { targetPropName, QJS.Enum(Destinations.GetRegisteredNames()) },
+                { targetPropName, QJS.Enum(Destinations.GetRegisteredNames().Append("Exploding Star")) },
             },
         };
 
@@ -38,7 +40,7 @@ namespace NeuroPilot.Actions
                 return ExecutionResult.Failure("Autopilot can only be used while in-game.");
             }
 
-            if (!EnhancedAutoPilot.GetInstance().TryEvade(targetName, out var error))
+            if (!EnhancedAutoPilot.GetInstance().TryOrient(targetName, out var error))
             {
                 return ExecutionResult.Failure(error);
             }
