@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace NeuroPilot
 {
-    public class NeuroPilot : ModBehaviour //TODO all nulls //TODO ?'s //TODO sort all //TODO orbit command //TODO instruments while not in pilots seat //TODO Probe destination destroyed first loop
+    public class NeuroPilot : ModBehaviour //TODO replace nulls with ?? or if(gameObject) //TODO check ?.'s //TODO sort all methods //TODO orbit command //TODO instruments while not in pilots seat
     {
         internal static NeuroPilot instance;
 
@@ -135,10 +135,6 @@ namespace NeuroPilot
                 CleanUpActions();
                 return;
             }
-
-            var probeBody = GameObject.Find("NomaiProbe_Body");
-            if (probeBody) AddReferenceFrame(probeBody, 300, 5, 15000f);
-            else ModHelper.Console.WriteLine("NomaiProbe_Body not found!", MessageType.Error);
 
             Destinations.SetUp();
 

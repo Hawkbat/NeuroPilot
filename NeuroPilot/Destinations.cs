@@ -266,6 +266,8 @@ namespace NeuroPilot
 
     public class ProbeDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
+        public override ReferenceFrame GetReferenceFrame() => rfv?.GetReferenceFrame()?.GetOWRigidBody() ? rfv?.GetReferenceFrame() : null;
+
         public override bool IsAvailable(out string reason)
         {
             if (!base.IsAvailable(out reason)) return false;
@@ -283,6 +285,14 @@ namespace NeuroPilot
             if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("ORBITAL_PROBE_CANNON").GetState() == ShipLogEntry.State.Hidden)
                 return "Fired blue thing";
             return "Probe";
+        }
+
+        public override void SetUp()
+        {
+            var probeBody = GameObject.Find("NomaiProbe_Body"); //TODO move to ProbeDestination
+            if (probeBody) NeuroPilot.AddReferenceFrame(probeBody, 300, 5, 15000f);
+            else NeuroPilot.instance.ModHelper.Console.WriteLine("NomaiProbe_Body not found!", MessageType.Error);
+            base.SetUp();
         }
     }
 
