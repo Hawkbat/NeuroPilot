@@ -216,7 +216,7 @@ namespace NeuroPilot
                 ];
 
                 NeuroActionHandler.RegisterActions(neuroActions);
-                Context.Send("Autopilot control is now available.");
+                Context.Send("Autopilot control is now available. You can use actions to control Vedal's ship in Outer Wilds. You may perform any action you wish, at any time, even unprompted.");
                 ModHelper.Console.WriteLine($"Registered {neuroActions.Length} neuro actions.");
             }
         }
