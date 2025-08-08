@@ -23,12 +23,12 @@ namespace NeuroPilot
         bool manualOverride;
         bool allowDestrucive;
 
-        static Transform mapSatellite = null;
+        static Transform _mapSatellite = null;
         public static Transform GetMapSatellite() {
-            if (!mapSatellite)
-                mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
+            if (!_mapSatellite)
+                _mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
 
-            return mapSatellite;
+            return _mapSatellite;
         }
 
         protected void Awake()
@@ -90,6 +90,7 @@ namespace NeuroPilot
             var sun = Locator.GetSunTransform();
             var ship = Locator.GetShipTransform();
 
+            var mapSatellite = GetMapSatellite();
             var isNearMapSatellite = Vector3.Distance(ship.position, mapSatellite.position) < 200f;
 
             if (!isNearMapSatellite)
