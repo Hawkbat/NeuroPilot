@@ -21,6 +21,16 @@
       "tooltip": "Prevents the AI agent from using destructive actions like ejecting, and allows player to abort commands. For if it's being a nuisance.",
       "type": "toggle",
       "value": false
+    },
+    "Scout Launcher (Neuro)": {
+      "tooltip": "Enables Neuro to use the scout launcher",
+      "type": "toggle",
+      "value": true
+    },
+    "Scout Launcher (Manual Control)": {
+      "tooltip": "Enables the player to use the scout launcher alongside Neuro",
+      "type": "toggle",
+      "value": true
     }
   }
 }
