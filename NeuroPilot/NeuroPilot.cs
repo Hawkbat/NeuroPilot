@@ -155,6 +155,8 @@ namespace NeuroPilot
                 logs.Add(msg);
                 Context.Send(msg, silent);
             });
+
+            NeuroActionHandler.RegisterActions(new PlayerStatusAction(), new ShipStatusAction());
         }
 
         public static ReferenceFrameVolume AddReferenceFrame(GameObject obj, float radius, float minTargetRadius, float maxTargetRadius)
@@ -234,6 +236,8 @@ namespace NeuroPilot
                 Context.Send("Autopilot control is temporarily unavailable.");
             ModHelper.Console.WriteLine($"Unregistered {neuroActions.Length} neuro actions.");
             neuroActions = null;
+
+            NeuroActionHandler.UnregisterActions("player_status", "ship_status", "launch_scout", "take_scout_photo", "retrieve_scout", "spin_scout", "turn_scout_camera");
         }
 
         string error;

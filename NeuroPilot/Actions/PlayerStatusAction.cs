@@ -17,9 +17,7 @@ namespace NeuroPilot.Actions
 
         protected override ExecutionResult Validate(ActionJData actionData)
         {
-            StringBuilder statusBuilder = new StringBuilder("[PLAYER STATUS]\n");
-            statusBuilder.Append($"Wearing Suit: {PlayerState.IsWearingSuit()}\n");
-
+            StringBuilder statusBuilder = new StringBuilder($"Wearing Suit: {PlayerState.IsWearingSuit()}\n");
             // Some information is only visible when the player is wearing a suit
             if (PlayerState.IsWearingSuit())
             {
