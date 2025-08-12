@@ -23,7 +23,8 @@ It's not as complicated as it looks, I promise!
 ## Credits
 
 - Acamaeda: Initial concept and feature proposal
-- Hawkbar, DialingSpoon: Mod development and implementation
+- Hawkbar, DialingSpoon: NeuroPilot development and implementation
+- Taflaxx: NeuroScope development and implementation
 
 Special Thanks:
 - Vedal987: Creator of Neuro-sama
