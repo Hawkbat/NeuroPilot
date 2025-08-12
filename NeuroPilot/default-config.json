@@ -21,6 +21,106 @@
       "tooltip": "Prevents the AI agent from using destructive actions like ejecting, and allows player to abort commands. For if it's being a nuisance.",
       "type": "toggle",
       "value": false
+    },
+    "Dialogue Context": {
+      "tooltip": "Sends Neuro the dialogue text when the player interacts with a character.",
+      "type": "selector",
+      "value": "Enabled (Silent)",
+      "options": [
+        "Enabled",
+        "Enabled (Silent)",
+        "Disabled"
+      ]
+    },
+    "Nomai Writing Context": {
+      "tooltip": "Sends Neuro the Nomai writing when the player reads it.",
+      "type": "selector",
+      "value": "Disabled",
+      "options": [
+        "Enabled",
+        "Enabled (Silent)",
+        "Disabled"
+      ]
+    },
+    "Ship Log Context": {
+      "tooltip": "Sends Neuro the ship log fact when the player unlocks new facts.",
+      "type": "selector",
+      "value": "Enabled (Silent)",
+      "options": [
+        "Enabled",
+        "Enabled (Silent)",
+        "Disabled"
+      ]
+    },
+    "Death Context": {
+      "tooltip": "Sends Neuro context when the player dies.",
+      "type": "selector",
+      "value": "Enabled",
+      "options": [
+          "Enabled",
+          "Enabled (Silent)",
+          "Disabled"
+      ]
+    },
+    "Achievement Context": {
+      "tooltip": "Sends Neuro the context when the player unlocks an achievement.",
+      "type": "selector",
+      "value": "Enabled",
+      "options": [
+        "Enabled",
+        "Enabled (Silent)",
+        "Disabled"
+      ]
+    },
+    "Notification Context": {
+      "tooltip": "Sends Neuro the notification text shown in the HUD ('GHOST MATTER DETECTED NEARBY' etc).",
+      "type": "selector",
+      "value": "Enabled (Silent)",
+      "options": [
+        "Enabled",
+        "Enabled (Silent)",
+        "Disabled"
+      ]
+    },
+    "Misc Context": {
+      "tooltip": "Sends Neuro miscellaneous context like roasting marshmallows, sleeping at campfires, etc.",
+      "type": "selector",
+      "value": "Enabled (Silent)",
+      "options": [
+        "Enabled",
+        "Enabled (Silent)",
+        "Disabled"
+      ]
+    },
+    "Location Context": {
+      "tooltip": "Sends Neuro the location of the player when they enter or leave a sector (area around a plantet)",
+      "type": "selector",
+      "value": "Enabled (Silent)",
+      "options": [
+        "Enabled",
+        "Enabled (Silent)",
+        "Disabled"
+      ]
+    },
+    "Signalscope Context": {
+      "tooltip": "Sends Neuro the signalscope signal when the player listens to it.",
+      "type": "selector",
+      "value": "Enabled (Silent)",
+      "options": [
+        "Enabled",
+        "Enabled (Silent)",
+        "Disabled"
+      ]
+    },
+    "Scout Launcher (Neuro)": {
+      "tooltip": "Enables Neuro to use the scout launcher",
+      "type": "toggle",
+      "value": true
+    },
+    "Scout Launcher (Manual Control)": {
+      "tooltip": "Enables the player to use the scout launcher alongside Neuro",
+      "type": "toggle",
+      "value": true
     }
   }
 }
