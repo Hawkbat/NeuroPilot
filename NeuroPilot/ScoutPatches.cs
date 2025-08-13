@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.EnterpriseServices;
 using Cysharp.Threading.Tasks;
 using HarmonyLib;
 using NeuroPilot.Actions;
@@ -11,7 +12,7 @@ namespace NeuroPilot
     [HarmonyPatch]
     public class ScoutPatches
     {
-        public static HashSet<SurveyorProbe> surveyorProbes = new();
+        public static HashSet<SurveyorProbe> surveyorProbes = [];
         public static Color surveyorProbeColor = Color.white;
         public static int surveyorProbeIntensity = 1;
         public static ProbeLauncher probeLauncher = null;   // Store the launcher to be able to take Snapshots
@@ -19,7 +20,7 @@ namespace NeuroPilot
         [HarmonyPostfix, HarmonyPatch(typeof(ProbeLauncher), nameof(ProbeLauncher.LaunchProbe))]
         public static void ProbeLauncher_LaunchProbe_Postfix(ProbeLauncher __instance)
         {
-            if (NeuroPilot.instance.ModHelper.Config.GetSettingsValue<bool>("Scout Launcher (Neuro)"))
+            if (ModConfig.ScoutLauncher_Neuro)
             {
                 NeuroActionHandler.RegisterActions(new TakeScoutPhotoAction(), new RetrieveScoutAction(), new SpinScoutAction(), new TurnScoutCameraAction());
             }
@@ -39,7 +40,7 @@ namespace NeuroPilot
         [HarmonyPostfix, HarmonyPatch(typeof(SurveyorProbe), nameof(SurveyorProbe.Awake))]
         public static void SurveyorProbe_Awake_Postfix(SurveyorProbe __instance)
         {
-            if (!NeuroPilot.instance.ModHelper.Config.GetSettingsValue<bool>("Scout Launcher (Neuro)")) return;
+            if (!ModConfig.ScoutLauncher_Neuro) return;
             if (surveyorProbes.Count == 0) NeuroActionHandler.RegisterActions(new SetScoutColorAction());
             surveyorProbes.Add(__instance);
         }
@@ -50,8 +51,7 @@ namespace NeuroPilot
         public static bool ProbeLauncher_UpdatePostLaunch_Prefix()
         {
             // Prevent manual probe control
-            if (NeuroPilot.instance.ModHelper.Config.GetSettingsValue<bool>("Scout Launcher (Neuro)") &&
-                !NeuroPilot.instance.ModHelper.Config.GetSettingsValue<bool>("Scout Launcher (Manual Control)"))
+            if (ModConfig.ScoutLauncher_Neuro && !ModConfig.ScoutLauncher_Manual)
             {
                 return false;
             }
@@ -61,21 +61,21 @@ namespace NeuroPilot
         [HarmonyPostfix, HarmonyPatch(typeof(ProbeLauncher), nameof(ProbeLauncher.EquipTool))]
         public static void SurveyorProbe_EquipTool_Postfix(ProbeLauncher __instance)
         {
-            if (!NeuroPilot.instance.ModHelper.Config.GetSettingsValue<bool>("Scout Launcher (Neuro)")) return;
+            if (!ModConfig.ScoutLauncher_Neuro) return;
             probeLauncher = __instance;
             if (__instance.GetActiveProbe() == null) NeuroActionHandler.RegisterActions(new LauchScoutAction());
             NeuroSdk.Messages.Outgoing.Context.Send("Scout launcher equipped.");
         }
 
         [HarmonyPostfix, HarmonyPatch(typeof(ProbeLauncher), nameof(ProbeLauncher.UnequipTool))]
-        public static void SurveyorProbe_UnequipTool_Postfix(ProbeLauncher __instance)
+        public static void SurveyorProbe_UnequipTool_Postfix()
         {
-            if (!NeuroPilot.instance.ModHelper.Config.GetSettingsValue<bool>("Scout Launcher (Neuro)")) return;
+            if (!ModConfig.ScoutLauncher_Neuro) return;
             NeuroActionHandler.UnregisterActions("launch_scout");
             NeuroSdk.Messages.Outgoing.Context.Send("Scout launcher unequipped.");
         }
 
-                public static void updateSurveyProbeLights()
+        public static void UpdateSurveyProbeLights()
         {
             foreach (SurveyorProbe probe in surveyorProbes)
             {
@@ -93,10 +93,10 @@ namespace NeuroPilot
                 }
             }
         }
-        public static async UniTask turnSurveyorProbe(SurveyorProbe surveyorProbe, string direction, int steps)
+        public static async UniTask TurnSurveyorProbeAsync(SurveyorProbe surveyorProbe, string direction, int steps)
         {
             float rotationStep = (direction == "left" || direction == "up") ? -30f : 30f;
-            float duration = 2f * ((float) steps / 12f); // Full rotation should take 2 seconds
+            float duration = 2f * (steps / 12f); // Full rotation should take 2 seconds
             var rotatingCamera = surveyorProbe.GetRotatingCamera();
 
             float stepDuration = duration / steps;
@@ -104,15 +104,18 @@ namespace NeuroPilot
             for (int i = 1; i <= steps; i++)
             {
                 if (!surveyorProbe.IsAnchored()) return; // Handles retrieval during rotation
-                if (direction == "left" || direction == "right") {
+                if (direction == "left" || direction == "right")
+                {
                     rotatingCamera.RotateHorizontal(rotationStep);
-                } else {
+                }
+                else
+                {
                     rotatingCamera.RotateVertical(rotationStep);
                 }
 
                 probeLauncher.TakeSnapshotWithCamera(rotatingCamera);
                 await UniTask.Delay((int)(stepDuration * 1000));
             }
-        } 
+        }
     }
 }

@@ -5,11 +5,11 @@ using UnityEngine;
 namespace NeuroPilot
 {
     [HarmonyPatch]
-    public static class Patches //TODO can we not repeat the whole methods in some of these
+    public static class AutopilotPatches //TODO can we not repeat the whole methods in some of these
     {
 
         [HarmonyPrefix, HarmonyPatch(typeof(QuantumMoon), nameof(QuantumMoon.ChangeQuantumState))]
-        public static void QuantumMoon_ChangeQuantumState(ref bool __result)
+        public static void QuantumMoon_ChangeQuantumState()
         {
             // Abort autopilot if the moon moves
             var autopilot = EnhancedAutoPilot.GetInstance();
@@ -84,8 +84,8 @@ namespace NeuroPilot
                     $"The autopilot module has been damaged. There is a problem with your AI.", false);
         }
 
-        [HarmonyPrefix, HarmonyPatch(typeof(ReferenceFrameTracker), nameof(ReferenceFrameTracker.UntargetReferenceFrame)), HarmonyPatch(new Type[] { typeof(bool) })]
-        public static void ReferenceFrameTracker_UntargetReferenceFrame(bool playAudio) //TODO can move this to a listener?
+        [HarmonyPrefix, HarmonyPatch(typeof(ReferenceFrameTracker), nameof(ReferenceFrameTracker.UntargetReferenceFrame)), HarmonyPatch([typeof(bool)])]
+        public static void ReferenceFrameTracker_UntargetReferenceFrame() //TODO can move this to a listener?
         {
             // tell neuro that destination was untargeted
             var targetedDestination = Destinations.GetByType<TargetedDestination>();
@@ -117,7 +117,8 @@ namespace NeuroPilot
                     return false;
                 __instance.CompleteExitFlightConsole();
             }
-            else {
+            else
+            {
                 __instance._playerAttachPoint.transform.localPosition = Vector3.Lerp(__instance._raisedAttachPointLocalPos, __instance._origAttachPointLocalPos, Mathf.InverseLerp(__instance._enterFlightConsoleTime, __instance._enterFlightConsoleTime + 0.4f, Time.time));
             }
             return false;
@@ -129,7 +130,7 @@ namespace NeuroPilot
             // Copy-paste of the Update method to strip out user input for autopilot and landing modes
             // Maybe could be done with patching OWInput.IsNewlyPressed() while in InputMode.ShipCockpit but that's even scarier
 
-            if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
+            if (ModConfig.ManualOverride && PlayerState.AtFlightConsole())
             {
                 // If manual override is enabled and player is piloting, allow the original Update method to run and give full control
                 return true;
@@ -167,10 +168,11 @@ namespace NeuroPilot
                     __instance._autopilot.StopMatchVelocity();
                 }
             }
-            if (OWInput.IsInputMode(InputMode.ShipCockpit | InputMode.LandingCam)) {
-                if (OWInput.IsNewlyPressed(InputLibrary.autopilot) && !NeuroPilot.AllowDestructive)
+            if (OWInput.IsInputMode(InputMode.ShipCockpit | InputMode.LandingCam))
+            {
+                if (OWInput.IsNewlyPressed(InputLibrary.autopilot) && !ModConfig.AllowDestructive)
                 {
-                    autopilot.TryAbortTravel(out var error);
+                    autopilot.TryAbortTravel(out _);
                 }
                 if (!__instance._enteringLandingCam)
                 {
@@ -213,7 +215,7 @@ namespace NeuroPilot
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.IsLandingModeAvailable))]
-        public static bool ShipCockpitController_IsLandingModeAvailable(ShipCockpitController __instance, ref bool __result)
+        public static bool ShipCockpitController_IsLandingModeAvailable(ref bool __result)
         {
             if (!EnhancedAutoPilot.GetInstance().IsManualAllowed() || EnhancedAutoPilot.GetInstance().IsSpinning())
             {
@@ -250,14 +252,14 @@ namespace NeuroPilot
         {
             // Prevent autopilot prompts from showing up
 
-            if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
+            if (ModConfig.ManualOverride && PlayerState.AtFlightConsole())
             {
                 // If manual override is enabled and player is piloting, keep prompts visible
                 return;
             }
 
             __instance._autopilotPrompt.SetVisibility(false);
-            __instance._abortAutopilotPrompt.SetVisibility(EnhancedAutoPilot.GetInstance().IsAutopilotActive() && !NeuroPilot.AllowDestructive);
+            __instance._abortAutopilotPrompt.SetVisibility(EnhancedAutoPilot.GetInstance().IsAutopilotActive() && !ModConfig.AllowDestructive);
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(AlignShipWithReferenceFrame), nameof(AlignShipWithReferenceFrame.GetAlignmentDirection))]
@@ -274,7 +276,6 @@ namespace NeuroPilot
             __result = __instance._currentDirection;
             if (autopilot.IsTakingOff() || autopilot.IsLanding())
             {
-                var task = EnhancedAutoPilot.GetInstance().GetCurrentTask();
                 ReferenceFrame rf = autopilot.GetCurrentDestination().GetReferenceFrame();
                 if (rf != null)
                 {
@@ -295,7 +296,7 @@ namespace NeuroPilot
         [HarmonyPrefix, HarmonyPatch(typeof(AlignWithDirection), nameof(AlignWithDirection.UpdateRotation))]
         public static bool AlignWithDirection_UpdateRotation(AlignWithDirection __instance, Vector3 currentDirection, Vector3 targetDirection, float slerpRate, bool usePhysics)
         {
-            if (!(__instance is AlignShipWithReferenceFrame alignShip))
+            if (__instance is not AlignShipWithReferenceFrame alignShip)
                 return true;
             if (usePhysics)
             {
@@ -331,7 +332,7 @@ namespace NeuroPilot
             if (!__instance._shipResources.AreThrustersUsable())
                 return;
 
-            if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
+            if (ModConfig.ManualOverride && PlayerState.AtFlightConsole())
                 return;
 
             if (__instance._autopilot.IsFlyingToDestination() || autopilot.GetCurrentTask() is CrashTask)
@@ -342,7 +343,7 @@ namespace NeuroPilot
         }
 
         [HarmonyPostfix, HarmonyPatch(typeof(DeathManager), nameof(DeathManager.KillPlayer))]
-        public static void DeathManager_KillPlayer(DeathType deathType, DeathManager __instance)
+        public static void DeathManager_KillPlayer(DeathType deathType)
         {
             if (deathType == DeathType.Digestion)
                 EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke(
@@ -354,7 +355,7 @@ namespace NeuroPilot
         public static bool ShipThrusterController_ReadTranslationalInput(ShipThrusterController __instance, ref Vector3 __result)
         {
             // If manual override is enabled and player is piloting, allow player input
-            if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
+            if (ModConfig.ManualOverride && PlayerState.AtFlightConsole())
             {
                 return true;
             }
@@ -385,7 +386,8 @@ namespace NeuroPilot
 
 
                     Vector3 unclampedThrust = Vector3.zero;
-                    if (rfv != null) {
+                    if (rfv != null)
+                    {
                         unclampedThrust = (__instance._shipBody.GetRelativeVelocity(rfv)) * .5f;
 
                         var equtorialDistance = (__instance._shipBody.GetPosition().y - rfv.GetPosition().y);
@@ -431,8 +433,9 @@ namespace NeuroPilot
                                 tangent = x * u - y * v;
 
                             tangent = -tangent;
-                        } 
-                        else {
+                        }
+                        else
+                        {
                             tangent = -u;
                         }
 
@@ -444,8 +447,6 @@ namespace NeuroPilot
                 if (autopilot.IsCrashing())
                 {
                     ReferenceFrame rfv = autopilot.GetCurrentDestination().GetReferenceFrame();
-                    var task = autopilot.GetCurrentTask();
-
 
                     Vector3 unclampedThrust = Vector3.zero;
                     if (rfv != null)

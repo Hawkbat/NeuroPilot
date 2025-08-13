@@ -7,7 +7,7 @@ namespace NeuroPilot
 {
     public class EnhancedAutoPilot : MonoBehaviour
     {
-        public class AutopilotEvent : UnityEvent<string, bool> {}
+        public class AutopilotEvent : UnityEvent<string, bool> { }
 
         private const float STUCK_TIMEOUT = 5f;
         private const float TAKEOFF_TARGET_VELOCITY = 300f;
@@ -41,10 +41,10 @@ namespace NeuroPilot
             return instance;
         }
 
-        public Destination GetCurrentDestination() => 
+        public Destination GetCurrentDestination() =>
             GetCurrentTask()?.Destination ?? Destinations.GetByReferenceFrame(autopilot._referenceFrame);
 
-        public string GetCurrentDestinationName() => 
+        public string GetCurrentDestinationName() =>
             GetCurrentDestination()?.ToString() ?? autopilot._referenceFrame?.GetHUDDisplayName() ?? string.Empty; //TODO GetHUDDisplayName() is empty, never null
 
         public Destination GetCurrentLocation() => Destinations.GetShipLocation() ?? Destinations.GetByReferenceFrame(shipSectorDetector.GetPassiveReferenceFrame());
@@ -52,8 +52,8 @@ namespace NeuroPilot
         public AutoPilotTask GetCurrentTask() => taskQueue.TryPeek(out var task) ? task : null;
         public IEnumerable<AutoPilotTask> GetQueuedTasks() => taskQueue;
 
-        public bool IsManualAllowed() => !IsAutopilotActive() && 
-            (NeuroPilot.ManualOverride
+        public bool IsManualAllowed() => !IsAutopilotActive() &&
+            (ModConfig.ManualOverride
             || GetCurrentLocation()?.GetDistanceToShip() < GetCurrentLocation()?.GetReferenceFrame()?.GetAutopilotArrivalDistance() + 100f
             || GetCurrentLocation() != null
             || EntitlementsManager.IsDlcOwned() == EntitlementsManager.AsyncOwnershipStatus.Owned && Locator.GetCloakFieldController().isShipInsideCloak);
@@ -68,7 +68,7 @@ namespace NeuroPilot
         public IEnumerable<Destination> GetPossibleObstacles() => possibleObstacles;
         public IEnumerable<Destination> GetActiveObstacles() => activeObstacles;
 
-        public bool IsAutopilotAvailable() => playerHasEnteredShip && !IsAutopilotDamaged() && !(NeuroPilot.ManualOverride && PlayerState.AtFlightConsole());
+        public bool IsAutopilotAvailable() => playerHasEnteredShip && !IsAutopilotDamaged() && !(ModConfig.ManualOverride && PlayerState.AtFlightConsole());
         public bool IsAutopilotDamaged() => autopilot.IsDamaged() || cockpitController._shipSystemFailure || !Locator.GetShipBody().gameObject.activeSelf;
 
         protected void Awake()
@@ -208,15 +208,12 @@ namespace NeuroPilot
         public float GetTargetLandingVelocity()
         {
             var currentTask = GetCurrentTask();
-            switch (currentTask)
+            return currentTask switch
             {
-                case TakeOffTask:
-                    return TAKEOFF_TARGET_VELOCITY;
-                case LandingTask:
-                    return Math.Min(-(((Locator.GetShipBody().GetPosition() - GetCurrentDestination().GetReferenceFrame().GetPosition()).magnitude - GetCurrentDestination()?.InnerRadius ?? 200f) / 5), LANDING_TARGET_VELOCITY);
-                default:
-                    return 0f;
-            }
+                TakeOffTask => TAKEOFF_TARGET_VELOCITY,
+                LandingTask => Math.Min(-(((Locator.GetShipBody().GetPosition() - GetCurrentDestination().GetReferenceFrame().GetPosition()).magnitude - GetCurrentDestination()?.InnerRadius ?? 200f) / 5), LANDING_TARGET_VELOCITY),
+                _ => 0f,
+            };
         }
 
         public bool ValidateDestination(Destination destination, out string error)
@@ -324,7 +321,7 @@ namespace NeuroPilot
         {
             if (!ValidateAutopilotStatus(out error)) return false;
 
-            if (!NeuroPilot.AllowDestructive)
+            if (!ModConfig.AllowDestructive)
             {
                 error = "The player has decided you were being a nuisance.";
                 return false;
@@ -363,7 +360,7 @@ namespace NeuroPilot
 
         public bool TryControlHatch(bool open, out string error)
         {
-            if (!NeuroPilot.AllowDestructive)
+            if (!ModConfig.AllowDestructive)
             {
                 error = "The player has decided you were being a nuisance.";
                 return false;
@@ -382,7 +379,7 @@ namespace NeuroPilot
             if (open)
             {
                 if (!PlayerState.IsInsideShip())
-                FindObjectOfType<ShipTractorBeamSwitch>().ActivateTractorBeam();
+                    FindObjectOfType<ShipTractorBeamSwitch>().ActivateTractorBeam();
                 hatchController.OpenHatch();
             }
             else
@@ -397,7 +394,7 @@ namespace NeuroPilot
 
         public string GetAutopilotStatus()
         {
-            List<string> messages = new List<string>();
+            List<string> messages = [];
 
             if (!ValidateAutopilotStatus(out string error)) return error;
 
@@ -409,17 +406,17 @@ namespace NeuroPilot
             {
                 messages.Add($"Autopilot is currently landing at: {GetCurrentDestinationName()}.");
             }
-            else if(IsTakingOff())
+            else if (IsTakingOff())
             {
                 messages.Add($"Autopilot is currently taking off from: {GetCurrentDestinationName()}.");
             }
-            else if(IsEvading())
+            else if (IsEvading())
             {
                 messages.Add($"Autopilot is currently evding: {GetCurrentDestinationName()}.");
             }
             else
-            { 
-                messages.Add($"Autopilot is currently idle. You can engage it to travel to a destination."); 
+            {
+                messages.Add($"Autopilot is currently idle. You can engage it to travel to a destination.");
             }
 
             messages.Add($"Avalible destinations: [{string.Join(", ", Destinations.GetAllValidNames())}]");
@@ -434,7 +431,7 @@ namespace NeuroPilot
         {
             if (!ValidateAutopilotStatus(out error)) return false;
 
-            if (!NeuroPilot.AllowDestructive)
+            if (!ModConfig.AllowDestructive)
             {
                 error = "The player has decided you were being a nuisance.";
                 return false;
@@ -516,7 +513,7 @@ namespace NeuroPilot
 
         private bool ValidateAutopilotStatus(out string error) //TODO should probably warn more than once
         {
-            if (NeuroPilot.ManualOverride && PlayerState.AtFlightConsole())
+            if (ModConfig.ManualOverride && PlayerState.AtFlightConsole())
             {
                 error = "Autopilot cannot be engaged while the manual override is active and someone is actively piloting.";
                 return false;
@@ -631,7 +628,7 @@ namespace NeuroPilot
             }
         }
 
-        private void AcceptTask(AutoPilotTask task, bool silent = false)
+        private void AcceptTask(AutoPilotTask task)
         {
             if (taskQueue.Count > 0) AbortTask();
 
@@ -644,12 +641,12 @@ namespace NeuroPilot
             RunTask();
         }
 
-        private void RunTask(bool silent = false)
+        private void RunTask()
         {
             if (taskQueue.Count < 1)
                 return;
 
-            OnAutopilotMessage.Invoke($"Autopilot engaged to {GetCurrentTask().ToString()}", true);
+            OnAutopilotMessage.Invoke($"Autopilot engaged to {GetCurrentTask()}", true);
             taskNotification = new NotificationData(NotificationTarget.All, $"Autopilot Engaged: {GetCurrentTask()}".ToUpper());
             NotificationManager.SharedInstance.PostNotification(taskNotification, true);
             if (GetCurrentTask() is TravelTask or CrashTask)
@@ -674,7 +671,7 @@ namespace NeuroPilot
             shipBody.AddAngularVelocityChange(desiredAV - shipBody.GetAngularVelocity());
         }
 
-        private void AbortTask(bool silent = false)
+        private void AbortTask()
         {
             if (autopilot.IsFlyingToDestination())
                 autopilot.Abort();
@@ -719,7 +716,7 @@ namespace NeuroPilot
                         AcceptTask(new LandingTask(Destinations.GetShipLocation()));
                     else
                         // We effectively *didn't* arrive at the destination if the error is too large; retry
-                        AcceptTask(new TravelTask(GetCurrentDestination()), true);
+                        AcceptTask(new TravelTask(GetCurrentDestination()));
                     return;
                 case > 50f:
                     OnAutopilotMessage.Invoke($"Autopilot arrived at destination: {GetCurrentDestinationName()} (undershot by {arrivalError:F2} meters).", true);

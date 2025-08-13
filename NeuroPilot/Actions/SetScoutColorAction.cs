@@ -17,7 +17,7 @@ namespace NeuroPilot.Actions
         protected override JsonSchema Schema => new()
         {
             Type = JsonSchemaType.Object,
-            Required = new List<string> { "color" },
+            Required = ["color"],
             Properties = new Dictionary<string, JsonSchema>
             {
                 ["color"] = new JsonSchema { Type = JsonSchemaType.String },
@@ -27,8 +27,7 @@ namespace NeuroPilot.Actions
 
         protected override ExecutionResult Validate(ActionJData actionData)
         {
-            Color color;
-            if (!ColorUtility.TryParseHtmlString(actionData.Data?["color"]?.ToString(), out color))
+            if (!ColorUtility.TryParseHtmlString(actionData.Data?["color"]?.ToString(), out Color color))
                 return ExecutionResult.Failure("Invalid color format. Use hex format (e.g., #RRGGBB).");
             int intensity = actionData.Data?["brightness"]?.ToObject<int>() ?? 1;
             if (intensity < 0 || intensity > 5)
@@ -41,7 +40,7 @@ namespace NeuroPilot.Actions
 
         protected override async UniTask ExecuteAsync()
         {
-            ScoutPatches.updateSurveyProbeLights();
+            ScoutPatches.UpdateSurveyProbeLights();
             await UniTask.CompletedTask;
         }
     }

@@ -19,7 +19,7 @@ namespace NeuroPilot.Actions
         {
             if (Locator.GetShipBody() == null) return ExecutionResult.Failure("No ship found.");
 
-            StringBuilder statusBuilder = new StringBuilder($"Player inside ship: {PlayerState.IsInsideShip()}\n"); 
+            StringBuilder statusBuilder = new($"Player inside ship: {PlayerState.IsInsideShip()}\n");
             foreach (var hull in Locator.GetShipBody().GetComponent<ShipDamageController>()._shipHulls)
             {
                 statusBuilder.Append($"{UITextLibrary.GetString(hull.hullName)}: {Math.Round(hull._integrity * 100)}%\n");

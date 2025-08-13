@@ -34,7 +34,7 @@ namespace NeuroPilot
             new QuantumMoonDestination("The Quantum Moon", "QuantumMoon_Body/Volumes/RFVolume", 110f, 500f),
 
             new PlanetoidDestination("The Interloper", "Comet_Body/RFVolume_CO", 300f, 600f),
-            
+
             new WhiteHoleStationDestination("White Hole Station", "WhiteholeStation_Body/RFVolume_WhiteholeStation", 100f, 300f),
 
             new MapSatelliteDestination("Hearthian Map Satellite", "HearthianMapSatellite_Body/RFVolume_HMS", 50f, 300f),
@@ -152,7 +152,7 @@ namespace NeuroPilot
             var go = GameObject.Find(parts[0]);
             if (go == null)
             {
-                NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[0]}", MessageType.Warning);
+                NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{Name}' at path '{path}' does not exist. Missing part: {parts[0]}", MessageType.Warning);
                 return;
             }
             for (var i = 1; i < parts.Length; i++)
@@ -160,14 +160,14 @@ namespace NeuroPilot
                 var t = go.transform.Find(parts[i]);
                 if (t == null)
                 {
-                    NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not exist. Missing part: {parts[i]}", MessageType.Warning);
+                    NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{Name}' at path '{path}' does not exist. Missing part: {parts[i]}", MessageType.Warning);
                     return;
                 }
                 go = t.gameObject;
             }
 
             rfv = go.GetComponent<ReferenceFrameVolume>();
-            if (!rfv) NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{name}' at path '{path}' does not have a ReferenceFrameVolume component.", MessageType.Warning);
+            if (!rfv) NeuroPilot.instance.ModHelper.Console.WriteLine($"Destination '{Name}' at path '{path}' does not have a ReferenceFrameVolume component.", MessageType.Warning);
         }
     }
 
@@ -271,7 +271,7 @@ namespace NeuroPilot
         public override bool IsAvailable(out string reason)
         {
             if (!base.IsAvailable(out reason)) return false;
-            
+
             if (GetDistanceToShip() > 50_000f)
             {
                 reason = $"{GetName()} is too far.";
@@ -308,7 +308,7 @@ namespace NeuroPilot
         public override bool IsAvailable(out string reason)
         {
             if (!base.IsAvailable(out reason)) return false;
-            
+
             if (Locator.GetQuantumMoon().GetStateIndex() == 5)
             {
                 reason = $"Cannot locate {Name}.";

@@ -24,7 +24,7 @@ namespace NeuroPilot.Actions
 
         protected override async UniTask ExecuteAsync(SurveyorProbe surveyorProbe)
         {
-            await ScoutPatches.turnSurveyorProbe(surveyorProbe, "right", 12);
+            await ScoutPatches.TurnSurveyorProbeAsync(surveyorProbe, "right", 12);
         }
     }
 }

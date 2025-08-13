@@ -15,10 +15,10 @@ namespace NeuroPilot.Actions
         protected override JsonSchema Schema => new()
         {
             Type = JsonSchemaType.Object,
-            Required = new List<string> { "direction" },
+            Required = ["direction"],
             Properties = new Dictionary<string, JsonSchema>
             {
-                ["direction"] = QJS.Enum(new List<string> { "left", "right", "up", "down" }),
+                ["direction"] = QJS.Enum(["left", "right", "up", "down"]),
                 ["steps"] = new JsonSchema { Type = JsonSchemaType.Integer },
             }
         };
@@ -48,7 +48,7 @@ namespace NeuroPilot.Actions
         {
             string direction = actionData.Data?["direction"]?.Value<string>();
             int amount = actionData.Data?["steps"]?.Value<int>() ?? 1;
-            await ScoutPatches.turnSurveyorProbe(ScoutPatches.probeLauncher.GetActiveProbe(), direction, amount);
+            await ScoutPatches.TurnSurveyorProbeAsync(ScoutPatches.probeLauncher.GetActiveProbe(), direction, amount);
         }
     }
 }

@@ -15,16 +15,11 @@ namespace NeuroPilot
     {
         internal static NeuroPilot instance;
 
-        public static bool ManualOverride => instance.manualOverride;
-        public static bool AllowDestructive => instance.allowDestrucive;
-
         INeuroAction[] neuroActions;
-        bool debugMode;
-        bool manualOverride;
-        bool allowDestrucive;
 
         static Transform _mapSatellite = null;
-        public static Transform GetMapSatellite() {
+        public static Transform GetMapSatellite()
+        {
             if (!_mapSatellite)
                 _mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
 
@@ -42,7 +37,7 @@ namespace NeuroPilot
 
             new Harmony("Hawkbar.NeuroPilot").PatchAll(Assembly.GetExecutingAssembly());
 
-            string neuroApiUrl = ModHelper.Config.GetSettingsValue<string>("Neuro API URL");
+            string neuroApiUrl = ModConfig.NeuroApiUrl;
             if (!string.IsNullOrEmpty(neuroApiUrl))
                 Environment.SetEnvironmentVariable("NEURO_SDK_WS_URL", neuroApiUrl);
 
@@ -76,14 +71,14 @@ namespace NeuroPilot
             else CleanUpActions();
         }
 
-        bool strangerdiscovered;
+        bool strangerDiscovered;
 
-        public void IsStrangerNewlyAvailable() //TODO allow without at sattelite? //TODO dont use strangerdiscovered
+        public void IsStrangerNewlyAvailable() //TODO allow without at sattelite? //TODO dont use strangerDiscovered
         {
             if (!Destinations.GetByType<StrangerDestination>().IsAvailable(out _))
                 return;
 
-            if (strangerdiscovered)
+            if (strangerDiscovered)
                 return;
 
             var ringWorld = Locator._ringWorld?.transform;
@@ -105,19 +100,16 @@ namespace NeuroPilot
             CleanUpActions();
             SetUpActions();
             EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("A \"Dark shadow over the sun\" has appeared. You should probably travel to it!", false);
-            strangerdiscovered = true;
+            strangerDiscovered = true;
         }
 
         public override void Configure(IModConfig config)
         {
-            debugMode = config.GetSettingsValue<bool>("Debug Mode");
-            manualOverride = config.GetSettingsValue<bool>("Manual Override");
-            allowDestrucive = !config.GetSettingsValue<bool>("Prevent Destructive Actions");
-            if (allowDestrucive)
+            if (ModConfig.AllowDestructive)
                 return;
 
             HatchController hatchController = Locator._shipTransform?.GetComponentInChildren<HatchController>();
-            if (hatchController && hatchController._hatchObject.activeSelf && !PlayerState.IsInsideShip()) 
+            if (hatchController && hatchController._hatchObject.activeSelf && !PlayerState.IsInsideShip())
             {
                 FindObjectOfType<ShipTractorBeamSwitch>().ActivateTractorBeam();
                 hatchController.OpenHatch();
@@ -225,7 +217,7 @@ namespace NeuroPilot
 
         public void CleanUpActions()
         {
-            strangerdiscovered = false;
+            strangerDiscovered = false;
             if (neuroActions == null)
                 return;
 
@@ -245,7 +237,7 @@ namespace NeuroPilot
 
         protected void OnGUI()
         {
-            if (!debugMode) return;
+            if (!ModConfig.DebugMode) return;
             if (LoadManager.GetCurrentScene() != OWScene.SolarSystem) return;
             if (!EnhancedAutoPilot.GetInstance()) return;
 
@@ -348,17 +340,6 @@ namespace NeuroPilot
 
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
-        }
-    }
-
-    public class ShipDestroyListener : MonoBehaviour
-    {
-        void OnDisable()
-        {
-            var autopilot = EnhancedAutoPilot.GetInstance();
-            autopilot.TryAbortTravel(out _);
-            autopilot.OnAutopilotMessage.Invoke("The ship has been destroyed", false);
-            NotificationManager.SharedInstance.PostNotification(new NotificationData(NotificationTarget.All, $"Connection with ship is lost".ToUpper()));
         }
     }
 }
