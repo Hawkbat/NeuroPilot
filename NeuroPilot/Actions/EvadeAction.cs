@@ -12,7 +12,7 @@ namespace NeuroPilot.Actions
 
         public override string Name => "evade";
 
-        protected override string Description => "Uses the ship's autopilot to maneuver away from another object, aborting any other autopilot procedure.";
+        protected override string Description => "Immediately maneuver the ship to try to avoid or evade the target object, interrupting any other autopilot procedure.";
 
         protected override JsonSchema Schema => new()
         {

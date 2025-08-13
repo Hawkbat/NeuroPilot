@@ -11,7 +11,7 @@ namespace NeuroPilot.Actions
     public class TurnScoutCameraAction : NeuroAction<ActionJData>
     {
         public override string Name => "turn_scout_camera";
-        protected override string Description => "Turn the scout camera in a specified direction. You can optionally specify the amount steps the camera should turn (1 step is 30 degrees, up to 12 steps at a time).";
+        protected override string Description => "Turn the scout camera in a specified direction. You can optionally specify the amount of steps the camera should turn (1 step is 30 degrees, up to 12 steps at a time).";
         protected override JsonSchema Schema => new()
         {
             Type = JsonSchemaType.Object,

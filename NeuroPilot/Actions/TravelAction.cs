@@ -10,9 +10,9 @@ namespace NeuroPilot.Actions
     {
         const string destinationPropName = "destination";
 
-        public override string Name => "travel";
+        public override string Name => "initiate_travel";
 
-        protected override string Description => "Activates the ship's autopilot to takeoff and fly to a specific destination in the solar system.";
+        protected override string Description => "Starts the process of taking off in the ship and flying to a specific destination in the solar system.";
 
         protected override JsonSchema Schema => new()
         {

@@ -7,9 +7,9 @@ namespace NeuroPilot.Actions
 {
     public class TakeOffAction : NeuroAction
     {
-        public override string Name => "take_off";
+        public override string Name => "initiate_take_off";
 
-        protected override string Description => "Uses the ship's autopilot to take off from the current location.";
+        protected override string Description => "Starts the process of lifting off from the current location.";
 
         protected override JsonSchema Schema => new();
 

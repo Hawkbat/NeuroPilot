@@ -99,6 +99,12 @@ namespace NeuroPilot
         {
             var currentTask = GetCurrentTask();
 
+            if (currentTask != null && IsAutopilotDamaged())
+            {
+                OnAutopilotMessage.Invoke("Autopilot has been aborted due to damage to the Autopilot module and cannot be engaged until it is repaired manually. There is a problem with your AI.", false);
+                AbortTask();
+            }
+
             switch (currentTask)
             {
                 case TakeOffTask:
@@ -412,7 +418,7 @@ namespace NeuroPilot
             }
             else if (IsEvading())
             {
-                messages.Add($"Autopilot is currently evding: {GetCurrentDestinationName()}.");
+                messages.Add($"Autopilot is currently evading: {GetCurrentDestinationName()}.");
             }
             else
             {
@@ -523,7 +529,7 @@ namespace NeuroPilot
                 error = "Autopilot cannot be engaged until the ship has been powered on.";
                 return false;
             }
-            if (autopilot.IsDamaged())
+            if (IsAutopilotDamaged())
             {
                 error = "Autopilot module is damaged and cannot be engaged until it is repaired manually. There is a problem with your AI.";
                 return false;

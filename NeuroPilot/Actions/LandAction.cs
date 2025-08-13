@@ -7,9 +7,9 @@ namespace NeuroPilot.Actions
 {
     public class LandAction : NeuroAction
     {
-        public override string Name => "land";
+        public override string Name => "initiate_landing";
 
-        protected override string Description => "Uses the ship's autopilot to land at the current location.";
+        protected override string Description => "Starts the process of landing the ship at the current location.";
 
         protected override JsonSchema Schema => new();
 
