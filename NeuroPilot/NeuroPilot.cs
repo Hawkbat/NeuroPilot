@@ -72,7 +72,6 @@ namespace NeuroPilot
             if (IsAutopilotAvailable) SetUpAutopilotActions();
             else CleanUpAutopilotActions();
 
-            changeCheckCooldown -= Time.deltaTime;
             if (changeCheckCooldown <= 0f)
             {
                 if (Destinations.CheckForChanges())
@@ -84,6 +83,10 @@ namespace NeuroPilot
                 {
                     changeCheckCooldown = 1f / 30f;
                 }
+            }
+            else
+            {
+                changeCheckCooldown -= Time.deltaTime;
             }
         }
 
