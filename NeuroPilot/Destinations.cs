@@ -92,6 +92,9 @@ namespace NeuroPilot
 
         public static bool CheckForChanges()
         {
+            if (LoadManager.GetCurrentScene() != OWScene.SolarSystem)
+                return false;
+
             var anyChanged = false;
             foreach (var d in destinations)
             {
