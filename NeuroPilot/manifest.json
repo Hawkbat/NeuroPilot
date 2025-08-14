@@ -11,5 +11,8 @@
     "body": "The NeuroPilot mod is only intended for use with the Neuro-sama AI. It is not a standalone autopilot mod and will severely hamper the Outer Wilds experience without Neuro-sama present."
   },
   "conflicts": ["xen.NewHorizons"],
-  "dependencies": []
+  "dependencies": [
+    "lStewieAl.RunInBackground",
+    "JohnCorby.VanillaFix"
+  ]
 }
