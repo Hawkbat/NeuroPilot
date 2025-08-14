@@ -1,12 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reflection;
-using HarmonyLib;
+﻿using HarmonyLib;
 using NeuroPilot.Actions;
 using NeuroSdk.Actions;
 using NeuroSdk.Messages.Outgoing;
 using OWML.Common;
 using OWML.ModHelper;
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Security.Cryptography;
 using UnityEngine;
 
 namespace NeuroPilot
@@ -15,16 +16,11 @@ namespace NeuroPilot
     {
         internal static NeuroPilot instance;
 
-        INeuroAction[] neuroActions;
+        INeuroAction[] autopilotActions;
+        bool strangerDiscovered;
 
-        static Transform _mapSatellite = null;
-        public static Transform GetMapSatellite()
-        {
-            if (!_mapSatellite)
-                _mapSatellite = GameObject.Find("HearthianMapSatellite_Body")?.transform;
-
-            return _mapSatellite;
-        }
+        public bool IsAutopilotAvailable =>
+            LoadManager.GetCurrentScene() == OWScene.SolarSystem && EnhancedAutoPilot.GetInstance() && EnhancedAutoPilot.GetInstance().IsAutopilotAvailable();
 
         protected void Awake()
         {
@@ -62,45 +58,18 @@ namespace NeuroPilot
             GlobalMessenger<ReferenceFrame>.AddListener("TargetReferenceFrame", _ => EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke($"{Destinations.GetByType<TargetedDestination>().GetDestinationName()} was targeted", true));
         }
 
+        protected void OnDestroy()
+        {
+            CleanUpAutopilotActions();
+            CleanUpScopeActions();
+        }
+
         protected void Update()
         {
             IsStrangerNewlyAvailable();
-            var autopilotAvailable = LoadManager.GetCurrentScene() == OWScene.SolarSystem && EnhancedAutoPilot.GetInstance() != null && EnhancedAutoPilot.GetInstance().IsAutopilotAvailable();
 
-            if (autopilotAvailable) SetUpActions();
-            else CleanUpActions();
-        }
-
-        bool strangerDiscovered;
-
-        public void IsStrangerNewlyAvailable() //TODO allow without at sattelite? //TODO dont use strangerDiscovered
-        {
-            if (!Destinations.GetByType<StrangerDestination>().IsAvailable(out _))
-                return;
-
-            if (strangerDiscovered)
-                return;
-
-            var ringWorld = Locator._ringWorld?.transform;
-            var sun = Locator.GetSunTransform();
-            var ship = Locator.GetShipTransform();
-
-            var mapSatellite = GetMapSatellite();
-            var isNearMapSatellite = Vector3.Distance(ship.position, mapSatellite.position) < 200f;
-
-            if (!isNearMapSatellite)
-                return;
-
-            var eclipseDot = Vector3.Dot((sun.position - ringWorld.position).normalized, (ringWorld.position - ship.position).normalized);
-            var isEclipseVisible = eclipseDot > 0.97f;
-
-            if (!isEclipseVisible)
-                return;
-
-            CleanUpActions();
-            SetUpActions();
-            EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("A \"Dark shadow over the sun\" has appeared. You should probably travel to it!", false);
-            strangerDiscovered = true;
+            if (IsAutopilotAvailable) SetUpAutopilotActions();
+            else CleanUpAutopilotActions();
         }
 
         public override void Configure(IModConfig config)
@@ -116,16 +85,12 @@ namespace NeuroPilot
             }
         }
 
-        protected void OnDestroy()
-        {
-            CleanUpActions();
-        }
-
         protected void OnCompleteSceneLoad(OWScene previousScene, OWScene newScene)
         {
             if (newScene != OWScene.SolarSystem)
             {
-                CleanUpActions();
+                CleanUpAutopilotActions();
+                CleanUpScopeActions();
                 return;
             }
 
@@ -138,9 +103,7 @@ namespace NeuroPilot
                 ((SingleInteractionVolume)anglerFishinteraction).OnPressInteract += () => autopilot.OnAutopilotMessage.Invoke("Oh look its Ernesto the anglerfish!", false);
 
             var ship = GameObject.Find("Ship_Body").gameObject;
-            var listener = ship.GetComponent<ShipDestroyListener>();
-            if (!listener)
-                listener = ship.AddComponent<ShipDestroyListener>();
+            ship.GetAddComponent<ShipDestroyListener>();
 
             autopilot.OnAutopilotMessage.AddListener((msg, silent) =>
             {
@@ -148,58 +111,50 @@ namespace NeuroPilot
                 Context.Send(msg, silent);
             });
 
-            NeuroActionHandler.RegisterActions(new PlayerStatusAction(), new ShipStatusAction());
+            SetUpScopeActions();
         }
 
-        public static ReferenceFrameVolume AddReferenceFrame(GameObject obj, float radius, float minTargetRadius, float maxTargetRadius)
+        public void IsStrangerNewlyAvailable() //TODO allow without at sattelite? //TODO dont use strangerDiscovered
         {
-            var go = new GameObject("RFVolume");
-            obj.GetAttachedOWRigidbody().SetIsTargetable(false);
-            go.transform.SetParent(obj.transform, false);
-            go.transform.localPosition = Vector3.zero;
-            go.layer = LayerMask.NameToLayer("ReferenceFrameVolume");
-            go.SetActive(false);
+            if (!Destinations.GetByType<StrangerDestination>().IsAvailable(out _))
+                return;
 
-            var col = go.AddComponent<SphereCollider>();
-            col.isTrigger = true;
-            col.radius = 0f;
+            if (strangerDiscovered)
+                return;
 
-            var rfv = go.AddComponent<ReferenceFrameVolume>();
-            rfv._referenceFrame = new ReferenceFrame(obj.GetComponent<OWRigidbody>())
-            {
-                _minSuitTargetDistance = minTargetRadius,
-                _maxTargetDistance = maxTargetRadius,
-                _autopilotArrivalDistance = radius,
-                _autoAlignmentDistance = radius * 0.75f,
-                _hideLandingModePrompt = false,
-                _matchAngularVelocity = true,
-                _minMatchAngularVelocityDistance = 70,
-                _maxMatchAngularVelocityDistance = 400,
-                _bracketsRadius = radius * 0.5f,
-                _useCenterOfMass = false,
-                _localPosition = Vector3.zero,
-            };
+            var ringWorld = Locator._ringWorld?.transform;
+            var sun = Locator.GetSunTransform();
+            var ship = Locator.GetShipTransform();
 
-            rfv._minColliderRadius = minTargetRadius;
-            rfv._maxColliderRadius = radius;
-            rfv._isPrimaryVolume = false;
-            rfv._isCloseRangeVolume = false;
+            var mapSatellite = Locations.GetMapSatellite();
+            var isNearMapSatellite = Vector3.Distance(ship.position, mapSatellite.position) < 200f;
 
-            go.SetActive(true);
-            return rfv;
+            if (!isNearMapSatellite)
+                return;
+
+            var eclipseDot = Vector3.Dot((sun.position - ringWorld.position).normalized, (ringWorld.position - ship.position).normalized);
+            var isEclipseVisible = eclipseDot > 0.97f;
+
+            if (!isEclipseVisible)
+                return;
+
+            UpdateAutopilotActions();
+            EnhancedAutoPilot.GetInstance().OnAutopilotMessage.Invoke("A \"Dark shadow over the sun\" has appeared. You should probably travel to it!", false);
+            strangerDiscovered = true;
         }
 
-        void SetUpActions()
+        public void SetUpAutopilotActions(bool silent = false)
         {
-            if (neuroActions == null)
+            if (autopilotActions == null)
             {
-                Destinations.UpdateNames();
-                neuroActions = [ //TODO only register avalible ones
+                autopilotActions = [ //TODO only register available ones
                     new TravelAction(),
                     new TakeOffAction(),
                     new LandAction(),
                     new EvadeAction(),
                     new AbortAutoPilotAction(),
+                    new GetDestinationLocationsAction(),
+                    new OrbitToLocationAction(),
                     new StatusAction(),
                     new ControlShipHatchAction(),
                     new ControlShipHeadlightsAction(),
@@ -209,31 +164,59 @@ namespace NeuroPilot
                     new OrientAction(),
                 ];
 
-                NeuroActionHandler.RegisterActions(neuroActions);
-                Context.Send("Autopilot control is now available. You can use actions to control Vedal's ship in Outer Wilds. You may perform any action you wish, at any time, even unprompted.");
-                ModHelper.Console.WriteLine($"Registered {neuroActions.Length} neuro actions.");
+                NeuroActionHandler.RegisterActions(autopilotActions);
+
+                if (!silent)
+                {
+                    Context.Send("Autopilot control is now available. You can use actions to control Vedal's ship in Outer Wilds. You may perform any action you wish, at any time, even unprompted.");
+                    ModHelper.Console.WriteLine($"Registered {autopilotActions.Length} neuro actions.");
+                }
             }
         }
 
-        public void CleanUpActions()
+        public void CleanUpAutopilotActions(bool silent = false)
         {
             strangerDiscovered = false;
-            if (neuroActions == null)
-                return;
 
-            NeuroActionHandler.UnregisterActions(neuroActions);
-            if ((EnhancedAutoPilot.GetInstance()?.IsAutopilotDamaged() ?? true) && TimeLoop.GetSecondsRemaining() > 0)
-                Context.Send("There is a problem with your AI. Autopilot control is not available.");
-            else
-                Context.Send("Autopilot control is temporarily unavailable.");
-            ModHelper.Console.WriteLine($"Unregistered {neuroActions.Length} neuro actions.");
-            neuroActions = null;
+            if (autopilotActions != null)
+            {
+                NeuroActionHandler.UnregisterActions(autopilotActions);
 
+                if (!silent)
+                {
+                    if ((!EnhancedAutoPilot.GetInstance() || EnhancedAutoPilot.GetInstance().IsAutopilotDamaged()) && TimeLoop.GetSecondsRemaining() > 0)
+                        Context.Send("There is a problem with your AI. Autopilot control is not available.");
+                    else
+                        Context.Send("Autopilot control is temporarily unavailable.");
+                    ModHelper.Console.WriteLine($"Unregistered {autopilotActions.Length} neuro actions.");
+                }
+                autopilotActions = null;
+            }
+
+        }
+
+        public void UpdateAutopilotActions()
+        {
+            CleanUpAutopilotActions(true);
+            if (IsAutopilotAvailable)
+            {
+                SetUpAutopilotActions(true);
+            }
+        }
+
+        public void SetUpScopeActions()
+        {
+            NeuroActionHandler.RegisterActions(new PlayerStatusAction(), new ShipStatusAction());
+        }
+
+        public void CleanUpScopeActions()
+        {
             NeuroActionHandler.UnregisterActions("player_status", "ship_status", "launch_scout", "take_scout_photo", "retrieve_scout", "spin_scout", "turn_scout_camera");
         }
 
         string error;
         readonly List<string> logs = [];
+        Destination selectedDestination;
 
         protected void OnGUI()
         {
@@ -248,7 +231,7 @@ namespace NeuroPilot
 
             GUILayout.Space(20f);
 
-            GUILayout.Label($"Neuro Actions Active: {neuroActions != null}");
+            GUILayout.Label($"Neuro Actions Active: {autopilotActions != null}");
 
             GUILayout.Label($"Player Location: {Destinations.GetPlayerLocation()?.Name ?? "Outer Space"}");
             GUILayout.Label($"Ship Location: {Destinations.GetShipLocation()?.Name ?? "Outer Space"}");
@@ -260,82 +243,109 @@ namespace NeuroPilot
                 GUILayout.Label(task.ToString());
             }
 
-            GUILayout.Space(20f);
-
-            GUI.enabled = autopilot.GetCurrentLocation() != null;
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Take Off") && autopilot.TryTakeOff(out error)) { }
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Land") && autopilot.TryLand(out error)) { }
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
-            GUI.enabled = autopilot.IsAutopilotActive();
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Abort") && autopilot.TryAbortTravel(out error)) { }
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
-            GUI.enabled = true;
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Open Hatch") && autopilot.TryControlHatch(true, out error)) { }
-            if (GUILayout.Button("Close Hatch") && autopilot.TryControlHatch(false, out error)) { }
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Headlights On") && autopilot.TryControlHeadlights(true, out error)) { }
-            if (GUILayout.Button("Headlights Off") && autopilot.TryControlHeadlights(false, out error)) { }
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Spin") && autopilot.Spin(out error)) { }
-            if (GUILayout.Button("Eject") && autopilot.Eject(out error)) { }
-            if (GUILayout.Button("Look Nova") && autopilot.TryOrient("Exploding Star", out error)) { }
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
-
-            foreach (var dest in Destinations.GetRegistered())
+            if (Locator._pauseCommandListener._pauseMenu && Locator._pauseCommandListener._pauseMenu.IsOpen())
             {
+                GUILayout.Space(20f);
+
+                GUI.enabled = autopilot.GetCurrentLocation() != null;
                 GUILayout.BeginHorizontal();
-                if (!dest.IsAvailable(out string reason)) GUI.enabled = false;
-                if (GUILayout.Button("Evade"))
-                {
-                    autopilot.TryEvade(dest.ToString(), out error);
-                }
-                if (GUILayout.Button("Travel"))
-                {
-                    autopilot.TryEngageTravel(dest.ToString(), out error);
-                }
-                if (GUILayout.Button("Crash"))
-                {
-                    autopilot.TryCrash(dest.ToString(), out error);
-                }
-                if (GUILayout.Button("Look"))
-                {
-                    autopilot.TryOrient(dest.ToString(), out error);
-                }
-                GUILayout.Label(dest.ToString());
-                if (!string.IsNullOrEmpty(reason))
-                {
-                    GUILayout.Label(reason);
-                }
+                if (GUILayout.Button("Take Off") && autopilot.TryTakeOff(out error)) { }
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Land") && autopilot.TryLand(out error)) { }
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+                GUI.enabled = autopilot.IsAutopilotActive();
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Abort") && autopilot.TryAbortTravel(out error)) { }
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
                 GUI.enabled = true;
-            }
-            if (!string.IsNullOrEmpty(error))
-            {
-                GUILayout.Label($"<color=red>Error: {error}</color>");
-            }
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Open Hatch") && autopilot.TryControlHatch(true, out error)) { }
+                if (GUILayout.Button("Close Hatch") && autopilot.TryControlHatch(false, out error)) { }
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Headlights On") && autopilot.TryControlHeadlights(true, out error)) { }
+                if (GUILayout.Button("Headlights Off") && autopilot.TryControlHeadlights(false, out error)) { }
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Spin") && autopilot.Spin(out error)) { }
+                if (GUILayout.Button("Eject") && autopilot.Eject(out error)) { }
+                if (GUILayout.Button("Look Nova") && autopilot.TryOrient("Exploding Star", out error)) { }
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+                if (selectedDestination != null)
+                {
+                    GUILayout.Label($"Selected: {selectedDestination}");
+                    if (!selectedDestination.IsAvailable(out _)) GUI.enabled = false;
+                    if (GUILayout.Button("Evade"))
+                    {
+                        autopilot.TryEvade(selectedDestination.Name, out error);
+                    }
+                    if (GUILayout.Button("Travel"))
+                    {
+                        autopilot.TryEngageTravel(selectedDestination.Name, out error);
+                    }
+                    if (GUILayout.Button("Crash"))
+                    {
+                        autopilot.TryCrash(selectedDestination.Name, out error);
+                    }
+                    if (GUILayout.Button("Look"))
+                    {
+                        autopilot.TryOrient(selectedDestination.Name, out error);
+                    }
+                    foreach (var (locationName, _) in Locations.ByDestination(selectedDestination))
+                    {
+                        if (GUILayout.Button(locationName))
+                        {
+                            autopilot.TryOrbitToLocation(selectedDestination.Name, locationName, out error);
+                        }
+                    }
+                    GUI.enabled = true;
+                }
+                GUILayout.EndVertical();
+                GUILayout.BeginVertical();
 
-            GUILayout.EndVertical();
-            GUILayout.BeginVertical();
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("None"))
+                {
+                    selectedDestination = null;
+                }
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+                foreach (var dest in Destinations.GetRegistered())
+                {
+                    GUILayout.BeginHorizontal();
+                    GUI.enabled = dest.IsAvailable(out string reason) && dest != selectedDestination;
+                    if (GUILayout.Button(dest.Name))
+                    {
+                        selectedDestination = dest;
+                    }
+                    if (!string.IsNullOrEmpty(reason))
+                    {
+                        GUILayout.Label(reason);
+                    }
+                    GUI.enabled = true;
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+                }
+                GUILayout.EndVertical();
+                GUILayout.BeginVertical();
+            }
 
             GUILayout.Space(20f);
             GUILayout.Label("Logs:");
             for (var i = Mathf.Max(0, logs.Count - 10); i < logs.Count; i++)
             {
                 GUILayout.Label(logs[i]);
+            }
+            if (!string.IsNullOrEmpty(error))
+            {
+                GUILayout.Label($"<color=red>Error: {error}</color>");
             }
 
             GUILayout.EndVertical();

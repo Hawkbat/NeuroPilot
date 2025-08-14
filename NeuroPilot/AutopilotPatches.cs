@@ -102,7 +102,7 @@ namespace NeuroPilot
                 ((!Locator.GetShipLogManager().GetFact("BH_GRAVITY_CANNON_X2").IsRevealed() && __instance.GetID() == NomaiShuttleController.ShuttleID.BrittleHollowShuttle)
                 || (!Locator.GetShipLogManager().GetFact("CT_GRAVITY_CANNON_X2").IsRevealed() && __instance.GetID() == NomaiShuttleController.ShuttleID.HourglassShuttle)))
             {
-                NeuroPilot.instance.CleanUpActions();
+                NeuroPilot.instance.UpdateAutopilotActions();
             }
         }
 
@@ -274,7 +274,7 @@ namespace NeuroPilot
                 return true;
             }
             __result = __instance._currentDirection;
-            if (autopilot.IsTakingOff() || autopilot.IsLanding())
+            if (autopilot.IsTakingOff() || autopilot.IsLanding() || autopilot.IsOrbiting())
             {
                 ReferenceFrame rf = autopilot.GetCurrentDestination().GetReferenceFrame();
                 if (rf != null)
@@ -375,31 +375,82 @@ namespace NeuroPilot
                 }
 
                 // If the ship is in autopilot mode, return the autopilot's thrust vector
-                if (autopilot.IsTakingOff() || autopilot.IsLanding())
+                if (autopilot.IsTakingOff() || autopilot.IsLanding() || autopilot.IsOrbiting())
                 {
                     ReferenceFrame rfv = autopilot.GetCurrentDestination().GetReferenceFrame();
-                    var currentVelocity = autopilot.GetCurrentLandingVelocity();
-                    var targetVelocity = autopilot.GetTargetLandingVelocity();
-                    var smoothingRange = 20f;
 
                     var task = autopilot.GetCurrentTask();
-
 
                     Vector3 unclampedThrust = Vector3.zero;
                     if (rfv != null)
                     {
-                        unclampedThrust = (__instance._shipBody.GetRelativeVelocity(rfv)) * .5f;
+                        if (task is OrbitToLocationTask orbitTask)
+                        {
+                            // Move along great-circle tangent towards target point
 
-                        var equtorialDistance = (__instance._shipBody.GetPosition().y - rfv.GetPosition().y);
+                            var shipPos = __instance._shipBody.GetPosition();
+                            var planetPos = rfv.GetOWRigidBody().GetPosition();
+                            var targetPos = orbitTask.LocationTransform.position;
+                            var from = (shipPos - planetPos).normalized;
+                            var to = (targetPos - planetPos).normalized;
+                            var axis = Vector3.Cross(from, to).normalized;
+                            var tangent = Vector3.Cross(axis, from).normalized;
+                            if (Vector3.Dot(tangent, to) < 0f)
+                                tangent = -tangent;
+
+                            // TODO: Make this smoothly adjust to target velocity instead of always applying it as acceleration
+                            var tangentThrust = tangent;
+
+                            var dot = Vector3.Dot(from, to);
+
+                            if (dot < 0.9f)
+                            {
+                                unclampedThrust = tangentThrust * 0.5f;
+                            }
+                            else
+                            {
+                                var targetBody = orbitTask.LocationTransform.GetAttachedOWRigidbody() ?? rfv.GetOWRigidBody();
+                                var relativeVelocity = __instance._shipBody.GetRelativeVelocity(targetBody);
+
+                                var priority = Mathf.Lerp(0f, 0.75f, Mathf.InverseLerp(0.9f, 1f, dot));
+                                unclampedThrust = Vector3.Lerp(tangentThrust, relativeVelocity, priority) * 0.5f;
+                            }
+                        }
+                        else
+                        {
+                            // Match velocity
+                            var targetBody = rfv.GetOWRigidBody();
+                            var targetPointVelocity = targetBody.GetPointVelocity(__instance._shipBody.GetPosition());
+                            var relativeVelocity = targetPointVelocity - __instance._shipBody.GetVelocity();
+
+                            unclampedThrust = relativeVelocity * 0.5f;
+                        }
+
+                        // Comparing world-space Y coordinates is fine here because they're relative to the plane of the solar system and we're checking for the planet's equator which is aligned to the plane
+                        var equtorialDistance = __instance._shipBody.GetPosition().y - rfv.GetPosition().y;
                         if (task is LandingTask && Destinations.GetByReferenceFrame(rfv) == Destinations.GetByName("Ember Twin") && Math.Abs(equtorialDistance) < 50)
                         {
                             unclampedThrust += Vector3.up * (50 - Math.Abs(equtorialDistance)) * Math.Sign(equtorialDistance); // Prevents the ship from falling into Ember Twin's canyon when landing
                         }
-                        unclampedThrust = __instance._shipBody.transform.InverseTransformDirection(unclampedThrust);
                     }
 
-                    var downThrust = (targetVelocity - currentVelocity) / smoothingRange;
-                    unclampedThrust.y = downThrust;
+                    var currentVelocity = autopilot.GetCurrentLandingVelocity();
+                    var targetVelocity = autopilot.GetTargetLandingVelocity();
+                    var smoothingRange = 20f;
+
+                    var upDir = (__instance._shipBody.GetPosition() - rfv.GetPosition()).normalized;
+                    
+                    // Zero out the "vertical" part of the previous thrust so we can apply takeoff/landing thrust on top
+                    var previousUpThrust = Vector3.Dot(unclampedThrust, upDir) * upDir;
+                    unclampedThrust -= previousUpThrust;
+
+                    // Apply upward/downward thrust
+                    var upThrustMagnitude = (targetVelocity - currentVelocity) / smoothingRange;
+                    var upThrust = upDir * upThrustMagnitude;
+                    unclampedThrust += upThrust;
+
+                    unclampedThrust = __instance._shipBody.transform.InverseTransformDirection(unclampedThrust);
+
                     var thrust = Vector3.ClampMagnitude(unclampedThrust, 1f);
                     __result = thrust;
                     return false;

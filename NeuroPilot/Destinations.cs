@@ -54,7 +54,6 @@ namespace NeuroPilot
         public static IEnumerable<Destination> GetRegistered() => destinations.Where(d => d.ShouldRegister());
         public static IEnumerable<Destination> GetAllValid() => GetRegistered().Where(d => d.IsAvailable(out string reason));
 
-        public static void UpdateNames() => destinations.ForEach(d => d.UpdateName());
         public static IEnumerable<string> GetAllNames() => destinations.Select(d => d.Name);
         public static IEnumerable<string> GetRegisteredNames() => GetRegistered().Select(d => d.Name);
         public static IEnumerable<string> GetAllValidNames() => GetAllValid().Select(d => d.Name);
@@ -88,22 +87,19 @@ namespace NeuroPilot
         public static void SetUp()
         {
             foreach (var d in destinations) d.SetUp();
-            Destinations.UpdateNames();
         }
     }
 
     public abstract class Destination(string name, float innerRadius, float outerRadius) // TODO can one of these just be made autopilotRadius
     {
-        public virtual string Name { get; private set; } = name;
-        public float InnerRadius { get; } = innerRadius;
-        public float OuterRadius { get; } = outerRadius;
+        public virtual string Name => name;
+        public float InnerRadius => innerRadius;
+        public float OuterRadius => outerRadius;
 
-        protected virtual string GetName() => Name;
-        public void UpdateName() => Name = GetName();
         public virtual bool ShouldRegister() => true;
-
-        public override string ToString() => Name;
+        public virtual bool CanOrbit() => false;
         public virtual bool CanLand() => false;
+        public override string ToString() => Name;
 
         public abstract ReferenceFrame GetReferenceFrame();
 
@@ -134,6 +130,12 @@ namespace NeuroPilot
             var destPos = GetReferenceFrame()?.GetPosition() ?? playerPos;
             return Vector3.Distance(destPos, playerPos);
         }
+
+        public virtual Transform GetTransform()
+            => GetReferenceFrame()?.GetOWRigidBody().transform;
+
+        public virtual IEnumerable<(string, Transform)> GetLocations()
+            => Locations.ByDestination(this);
 
         public virtual void SetUp() { }
     }
@@ -175,12 +177,10 @@ namespace NeuroPilot
     {
         readonly bool lightSide = lightSide;
 
-        protected override string GetName()
-        {
-            if (Locator.GetShipLogManager() && Locator.GetShipLogManager().IsFactRevealed("IP_RING_WORLD_X1"))
-                return $"The Stranger";
-            return "Dark shadow over the sun";
-        }
+        public override string Name =>
+            Locator.GetShipLogManager() && Locator.GetShipLogManager().IsFactRevealed("IP_RING_WORLD_X1")
+                ? "The Stranger"
+                : "Dark shadow over the sun";
 
         public override bool ShouldRegister() => IsAvailable(out _);
 
@@ -209,7 +209,7 @@ namespace NeuroPilot
             // If we have not discovered the Stranger yet, check if the ship is near the map satellite and the eclipse is visible
             if (!Locator.GetShipLogManager() || !Locator.GetShipLogManager().IsFactRevealed("IP_RING_WORLD_X1"))
             {
-                var mapSatellite = NeuroPilot.GetMapSatellite();
+                var mapSatellite = Locations.GetMapSatellite();
                 if (!mapSatellite)
                 {
                     reason = "Game not loaded yet.";
@@ -241,31 +241,33 @@ namespace NeuroPilot
 
     public class SunStationDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
-        protected override string GetName()
-        {
-            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("S_SUNSTATION").GetState() == ShipLogEntry.State.Hidden)
-                return "Object orbiting the sun";
-            return "Sun Station";
-        }
+        public override string Name =>
+            (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("S_SUNSTATION").GetState() == ShipLogEntry.State.Hidden)
+                ? "Object orbiting the sun"
+                : "Sun Station";
     }
 
     public class PlanetoidDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
         public override bool CanLand() => true;
+        public override bool CanOrbit() => true;
     }
 
     public class OPCDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
-        protected override string GetName()
-        {
-            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("ORBITAL_PROBE_CANNON").GetState() == ShipLogEntry.State.Hidden)
-                return "Giant's Deep Orbital Flash";
-            return "Orbital Probe Cannon";
-        }
+        public override string Name =>
+            (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("ORBITAL_PROBE_CANNON").GetState() == ShipLogEntry.State.Hidden)
+                ? "Giant's Deep Orbital Flash"
+                : "Orbital Probe Cannon";
     }
 
     public class ProbeDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
+        public override string Name =>
+            (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("ORBITAL_PROBE_CANNON").GetState() == ShipLogEntry.State.Hidden)
+                ? "Fired blue thing"
+                : "Probe";
+
         public override ReferenceFrame GetReferenceFrame() => rfv?.GetReferenceFrame()?.GetOWRigidBody() ? rfv?.GetReferenceFrame() : null;
 
         public override bool IsAvailable(out string reason)
@@ -274,23 +276,16 @@ namespace NeuroPilot
 
             if (GetDistanceToShip() > 50_000f)
             {
-                reason = $"{GetName()} is too far.";
+                reason = $"{Name} is too far.";
                 return false;
             }
             return true;
         }
 
-        protected override string GetName()
-        {
-            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("ORBITAL_PROBE_CANNON").GetState() == ShipLogEntry.State.Hidden)
-                return "Fired blue thing";
-            return "Probe";
-        }
-
         public override void SetUp()
         {
             var probeBody = GameObject.Find("NomaiProbe_Body"); //TODO move to ProbeDestination
-            if (probeBody) NeuroPilot.AddReferenceFrame(probeBody, 300, 5, 15000f);
+            if (probeBody) Locations.AddReferenceFrame(probeBody, 300, 5, 15000f);
             else NeuroPilot.instance.ModHelper.Console.WriteLine("NomaiProbe_Body not found!", MessageType.Error);
             base.SetUp();
         }
@@ -298,12 +293,10 @@ namespace NeuroPilot
 
     public class QuantumMoonDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
-        protected override string GetName()
-        {
-            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("QUANTUM_MOON").GetState() == ShipLogEntry.State.Hidden)
-                return "White cloudy moon";
-            return "The Quantum Moon";
-        }
+        public override string Name =>
+            (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("QUANTUM_MOON").GetState() == ShipLogEntry.State.Hidden)
+                ? "White cloudy moon"
+                : "The Quantum Moon";
 
         public override bool IsAvailable(out string reason)
         {
@@ -322,28 +315,29 @@ namespace NeuroPilot
 
     public class WhiteHoleStationDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
-        protected override string GetName()
-        {
-            if (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("WHITE_HOLE_STATION").GetState() == ShipLogEntry.State.Hidden)
-                return "White spot";
-            return "White Hole Station";
-        }
+        public override string Name =>
+            (!Locator.GetShipLogManager() || Locator.GetShipLogManager().GetEntry("WHITE_HOLE_STATION").GetState() == ShipLogEntry.State.Hidden)
+                ? "White spot"
+                : "White Hole Station";
     }
 
     public class MapSatelliteDestination(string name, string path, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
-        protected override string GetName()
-        {
-            if (!PlayerData.KnowsFrequency(SignalFrequency.Radio))
-                return "Red spot";
-            return "Hearthian Map Satellite";
-        }
+        public override string Name =>
+            !PlayerData.KnowsFrequency(SignalFrequency.Radio)
+                ? "Red spot"
+                : "Hearthian Map Satellite";
     }
 
     public class ShuttleDestination(string name, string path, NomaiShuttleController.ShuttleID shuttleID, float innerRadius, float outerRadius) : FixedDestination(name, path, innerRadius, outerRadius)
     {
         readonly NomaiShuttleController.ShuttleID shuttleID = shuttleID;
         NomaiShuttleController controller;
+
+        public override string Name =>
+            shuttleID == NomaiShuttleController.ShuttleID.BrittleHollowShuttle
+            ? "Brittle Hollow Shuttle"
+            : "Ember Twin Shuttle";
 
         public override bool IsAvailable(out string reason)
         {
@@ -359,19 +353,17 @@ namespace NeuroPilot
                 reason = "Shuttle has not yet been recalled.";
                 return false;
             }
+            if (!Locator.GetShipLogManager() ||
+                (!Locator.GetShipLogManager().GetFact("BH_GRAVITY_CANNON_X2").IsRevealed() && shuttleID == NomaiShuttleController.ShuttleID.BrittleHollowShuttle)
+                || (!Locator.GetShipLogManager().GetFact("CT_GRAVITY_CANNON_X2").IsRevealed() && shuttleID == NomaiShuttleController.ShuttleID.HourglassShuttle))
+            {
+                reason = "Shuttle has not been discovered.";
+                return false;
+            }
             return true;
         }
 
-        public override bool ShouldRegister() => Locator.GetShipLogManager() &&
-                ((Locator.GetShipLogManager().GetFact("BH_GRAVITY_CANNON_X2").IsRevealed() && shuttleID == NomaiShuttleController.ShuttleID.BrittleHollowShuttle)
-                || (Locator.GetShipLogManager().GetFact("CT_GRAVITY_CANNON_X2").IsRevealed() && shuttleID == NomaiShuttleController.ShuttleID.HourglassShuttle));
-
-        protected override string GetName()
-        {
-            if (shuttleID == NomaiShuttleController.ShuttleID.BrittleHollowShuttle)
-                return "Brittle Hollow Shuttle";
-            return "Ember Twin Shuttle";
-        }
+        public override bool ShouldRegister() => IsAvailable(out _);
 
         public override void SetUp()
         {
@@ -396,7 +388,8 @@ namespace NeuroPilot
 
     public class PlayerDestination() : FixedDestination("Player", "Player_Body/RFVolume", 0f, 0f)
     {
-        protected override string GetName() => StandaloneProfileManager.SharedInstance.currentProfile?.profileName ?? "Player";
+        public override string Name =>
+            StandaloneProfileManager.SharedInstance.currentProfile?.profileName ?? "Player";
 
         public override bool IsAvailable(out string reason)
         {
@@ -407,6 +400,24 @@ namespace NeuroPilot
                 reason = "Player is inside the ship.";
                 return false;
             }
+
+            if (PlayerState.InBrambleDimension())
+            {
+                var playerDimension = PlayerState.GetOuterFogWarpVolume();
+                var shipDimension = Locator.GetShipDetector().GetComponent<FogWarpDetector>().GetOuterFogWarpVolume();
+                if (playerDimension != shipDimension)
+                {
+                    reason = "Player is inside another part of Dark Bramble and cannot be located.";
+                    return false;
+                }
+            }
+
+            if (PlayerState.InCloakingField() && !Locator.GetCloakFieldController().isShipInsideCloak)
+            {
+                reason = "Player is inside a cloaking field and cannot be located. Enter the cloaking field first.";
+                return false;
+            }
+
             return true;
         }
 
@@ -418,7 +429,7 @@ namespace NeuroPilot
         public override void SetUp()
         {
             var player = GameObject.FindGameObjectWithTag("Player").gameObject;
-            NeuroPilot.AddReferenceFrame(player, 20, 0, 0);
+            Locations.AddReferenceFrame(player, 20, 0, 0);
             base.SetUp();
         }
     }
@@ -483,14 +494,13 @@ namespace NeuroPilot
     public class UnlistedDestination() : FloatingDestination("A Destination", 0f, 100f)
     {
         ReferenceFrame referenceFrame;
+        public override string Name => GetDestinationName();
         public override bool ShouldRegister() => false;
         public override bool CanLand() => Destination()?.CanLand() ?? false;
-        protected override string GetName() => GetDestinationName();
 
         public void SetReferenceFrame(ReferenceFrame rf)
         {
             referenceFrame = rf;
-            UpdateName();
         }
 
         public override ReferenceFrame GetReferenceFrame() => referenceFrame;

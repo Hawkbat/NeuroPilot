@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -20,6 +21,7 @@ namespace NeuroPilot
         ShipCockpitController cockpitController;
         Autopilot autopilot;
         SectorDetector shipSectorDetector;
+        ShipFluidDetector shipFluidDetector;
         HatchController hatchController;
         StarfieldController starfield;
 
@@ -45,7 +47,7 @@ namespace NeuroPilot
             GetCurrentTask()?.Destination ?? Destinations.GetByReferenceFrame(autopilot._referenceFrame);
 
         public string GetCurrentDestinationName() =>
-            GetCurrentDestination()?.ToString() ?? autopilot._referenceFrame?.GetHUDDisplayName() ?? string.Empty; //TODO GetHUDDisplayName() is empty, never null
+            GetCurrentDestination()?.ToString() ?? autopilot._referenceFrame?.GetHUDDisplayName() ?? string.Empty;
 
         public Destination GetCurrentLocation() => Destinations.GetShipLocation() ?? Destinations.GetByReferenceFrame(shipSectorDetector.GetPassiveReferenceFrame());
 
@@ -64,6 +66,7 @@ namespace NeuroPilot
         public bool IsLanding() => GetCurrentTask() is LandingTask;
         public bool IsEvading() => GetCurrentTask() is EvadeTask;
         public bool IsCrashing() => GetCurrentTask() is CrashTask;
+        public bool IsOrbiting() => GetCurrentTask() is OrbitToLocationTask;
 
         public IEnumerable<Destination> GetPossibleObstacles() => possibleObstacles;
         public IEnumerable<Destination> GetActiveObstacles() => activeObstacles;
@@ -77,7 +80,10 @@ namespace NeuroPilot
             cockpitController = gameObject.GetComponent<ShipCockpitController>();
             autopilot = cockpitController._autopilot;
             shipSectorDetector = transform.root.GetComponentInChildren<SectorDetector>();
+            shipFluidDetector = transform.root.GetComponentInChildren<ShipFluidDetector>();
             hatchController = transform.root.GetComponentInChildren<HatchController>();
+
+            shipFluidDetector.OnEnterFluidType += ShipFluidDetector_OnEnterFluidType;
 
             autopilot.OnArriveAtDestination += Autopilot_OnArriveAtDestination;
             autopilot.OnAlreadyAtDestination += Autopilot_OnAlreadyAtDestination;
@@ -88,6 +94,8 @@ namespace NeuroPilot
 
         protected void OnDestroy()
         {
+            shipFluidDetector.OnEnterFluidType -= ShipFluidDetector_OnEnterFluidType;
+
             autopilot.OnArriveAtDestination -= Autopilot_OnArriveAtDestination;
             autopilot.OnAlreadyAtDestination -= Autopilot_OnAlreadyAtDestination;
             autopilot.OnAbortAutopilot -= Autopilot_OnAbortAutopilot;
@@ -127,6 +135,7 @@ namespace NeuroPilot
                     {
                         OnAutopilotMessage.Invoke("Autopilot has aborted travel because the ship has entered a cloaking field.", false);
                         AbortTask();
+                        break;
                     }
                     break;
                 case EvadeTask:
@@ -147,6 +156,7 @@ namespace NeuroPilot
                     {
                         OnAutopilotMessage.Invoke($"Autopilot successfully evaded {currentTask.Destination?.Name ?? currentTask.Destination.GetReferenceFrame().GetHUDDisplayName()}.", false);
                         CompleteTask();
+                        break;
                     }
                     break;
                 case LandingTask:
@@ -154,8 +164,24 @@ namespace NeuroPilot
                     {
                         OnAutopilotMessage.Invoke("Autopilot has successfully landed at the current location.", false);
                         CompleteTask();
+                        break;
                     }
                     TickTakeOffLand();
+                    break;
+                case OrbitToLocationTask orbitTask:
+                    var targetBody = currentTask.Destination.GetReferenceFrame();
+                    var targetBodyPos = targetBody.GetPosition();
+                    var currentPos = Locator.GetShipBody().GetPosition();
+                    var orbitTargetPos = orbitTask.LocationTransform.position;
+                    var orbitTargetDir = (orbitTargetPos - targetBodyPos).normalized;
+                    var currentDir = (currentPos - targetBodyPos).normalized;
+                    if (Vector3.Dot(orbitTargetDir, currentDir) > 0.99f)
+                    {
+                        OnAutopilotMessage.Invoke("Autopilot has successfully arrived above the target location.", false);
+                        CompleteTask();
+                        break;
+                    }
+                    TickOrbit();
                     break;
             }
 
@@ -164,7 +190,7 @@ namespace NeuroPilot
             if (!IsManualAllowed())
             {
                 cockpitController._thrustController.enabled = !IsAutopilotDamaged();
-                cockpitController._thrustController._shipAlignment.enabled = IsTakingOff() || IsLanding() || ((IsTraveling() || IsCrashing()) && !PlayerState.IsInsideShip()); //TODO neccesary?
+                cockpitController._thrustController._shipAlignment.enabled = IsTakingOff() || IsLanding() || IsOrbiting() || ((IsTraveling() || IsCrashing()) && !PlayerState.IsInsideShip()); //TODO neccesary?
                 cockpitController._thrustController._shipAlignment._localAlignmentAxis = (IsTraveling() || IsCrashing()) ? Vector3.forward : Vector3.down;
             }
         }
@@ -200,6 +226,36 @@ namespace NeuroPilot
             }
         }
 
+        public void TickOrbit()
+        {
+            var rfv = GetCurrentDestination()?.GetReferenceFrame();
+            if (rfv == null)
+            {
+                OnAutopilotMessage.Invoke("Autopilot has aborted orbiting because the destination has changed.", false);
+                AbortTask();
+                return;
+            }
+
+            if (!cockpitController.InLandingMode())
+                cockpitController.EnterLandingMode();
+
+            var isStuck = Locator.GetShipBody().GetRelativeVelocity(rfv).magnitude < 2f;
+            if (!isStuck)
+            {
+                stuckTime = 0f;
+                return;
+            }
+
+            stuckTime += Time.deltaTime;
+            if (stuckTime < STUCK_TIMEOUT)
+                return;
+
+            stuckTime = 0f;
+
+            OnAutopilotMessage.Invoke($"Autopilot has aborted because the ship became stuck while trying to orbit to target.", false);
+            AbortTask();
+        }
+
         public float GetCurrentLandingVelocity()
         {
             var rfv = GetCurrentDestination()?.GetReferenceFrame();
@@ -218,6 +274,7 @@ namespace NeuroPilot
             {
                 TakeOffTask => TAKEOFF_TARGET_VELOCITY,
                 LandingTask => Math.Min(-(((Locator.GetShipBody().GetPosition() - GetCurrentDestination().GetReferenceFrame().GetPosition()).magnitude - GetCurrentDestination()?.InnerRadius ?? 200f) / 5), LANDING_TARGET_VELOCITY),
+                OrbitToLocationTask => Mathf.Clamp(GetCurrentDestination().InnerRadius - Vector3.Distance(Locator.GetShipBody().GetPosition(), GetCurrentDestination().GetReferenceFrame().GetPosition()), -100f, 100f),
                 _ => 0f,
             };
         }
@@ -341,6 +398,32 @@ namespace NeuroPilot
             return true;
         }
 
+        public bool TryOrbitToLocation(string destinationName, string locationName, out string error)
+        {
+            if (!ValidateAutopilotStatus(out error)) return false;
+
+            var destination = Destinations.GetByName(destinationName);
+            if (!ValidateDestination(destination, out error)) return false;
+
+            var (actualLocationName, locationTransform) = Locations.ByName(locationName, out string locationError);
+
+            if (!locationTransform)
+            {
+                error = $"{locationError}. Valid locations: {string.Join(", ", Locations.ByDestination(destination).Select((name, transform) => name))}";
+                return false;
+            }
+
+            if (!Locations.ByDestination(destination).Any(pair => pair.Item2 == locationTransform))
+            {
+                error = $"Target location is not at the selected destination. Valid locations: {string.Join(", ", Locations.ByDestination(destination).Select((name, transform) => name))}";
+                return false;
+            }
+
+            AcceptTask(new OrbitToLocationTask(destination, locationName, locationTransform));
+            error = string.Empty;
+            return true;
+        }
+
         public bool TryControlHeadlights(bool on, out string error)
         {
             if (IsAutopilotDamaged())
@@ -420,6 +503,10 @@ namespace NeuroPilot
             {
                 messages.Add($"Autopilot is currently evading: {GetCurrentDestinationName()}.");
             }
+            else if (IsOrbiting())
+            {
+                messages.Add($"Autopilot is currently orbiting to a target on: {GetCurrentDestinationName()}");
+            }
             else
             {
                 messages.Add($"Autopilot is currently idle. You can engage it to travel to a destination.");
@@ -477,9 +564,9 @@ namespace NeuroPilot
                 error = "Ship has recently touched the ground and cannot turn.";
                 return false;
             }
-            if (IsTakingOff() || IsLanding())
+            if (IsTakingOff() || IsLanding() || IsOrbiting())
             {
-                error = "Ship cannot orient while taking off or landing.";
+                error = "Ship cannot orient while taking off, landing, or orbiting.";
                 return false;
             }
 
@@ -601,7 +688,7 @@ namespace NeuroPilot
                     }
                     if (!activeObstacles.Contains(d))
                     {
-                        OnAutopilotMessage.Invoke($"{d} is now an active obstacle on the current travel path, {distanceToObject:F2} meters away.", false);
+                        OnAutopilotMessage.Invoke($"{d} is now an active obstacle on the current travel path, {distanceToObject / 1000f:F2} kilometers away. Consider evading it!", false);
                         activeObstacles.Add(d);
                     }
                 }
@@ -614,7 +701,7 @@ namespace NeuroPilot
                     }
                     if (!possibleObstacles.Contains(d))
                     {
-                        OnAutopilotMessage.Invoke($"{d} is a potential obstacle on the current travel path, {distanceToObject:F2} meters away.", true);
+                        OnAutopilotMessage.Invoke($"{d} is a potential obstacle on the current travel path, {distanceToObject / 1000f:F2} kilometers away.", true);
                         possibleObstacles.Add(d);
                     }
                 }
@@ -638,12 +725,40 @@ namespace NeuroPilot
         {
             if (taskQueue.Count > 0) AbortTask();
 
-            if ((task is TravelTask or CrashTask) && (Destinations.GetShipLocation()?.CanLand() ?? false || cockpitController._landingManager.IsLanded()))
+            if ((task is TravelTask or CrashTask or OrbitToLocationTask) && ((GetCurrentLocation()?.CanLand() ?? false) || cockpitController._landingManager.IsLanded()))
             {
                 taskQueue.Enqueue(new TakeOffTask(GetCurrentLocation()));
             }
 
-            taskQueue.Enqueue(task);
+            // Special handling for traveling to the player while they're on a planet
+            var currentPlayerLocation = Destinations.GetPlayerLocation();
+            if (task is TravelTask or OrbitToLocationTask && task.Destination is PlayerDestination && currentPlayerLocation != null)
+            {
+                if (GetCurrentLocation() != currentPlayerLocation)
+                {
+                    taskQueue.Enqueue(new TravelTask(Destinations.GetPlayerLocation()));
+                }
+
+                if (currentPlayerLocation?.CanOrbit() ?? false)
+                {
+                    taskQueue.Enqueue(new OrbitToLocationTask(Destinations.GetPlayerLocation(), task.Destination.Name, Locator.GetPlayerTransform()));
+                }
+
+                if (currentPlayerLocation?.CanLand() ?? false)
+                {
+                    taskQueue.Enqueue(new LandingTask(currentPlayerLocation));
+                }
+            }
+            else
+            {
+                if (task is OrbitToLocationTask or LandingTask && GetCurrentLocation() != task.Destination)
+                {
+                    taskQueue.Enqueue(new TravelTask(task.Destination));
+                }
+
+                taskQueue.Enqueue(task);
+            }
+
             RunTask();
         }
 
@@ -690,20 +805,25 @@ namespace NeuroPilot
 
         private void CompleteTask()
         {
+            var task = GetCurrentTask();
+            
             StopTask();
+            taskQueue.Dequeue();
 
-            if (GetCurrentTask() is TravelTask travelTask && travelTask.Destination.CanLand() && !PlayerState.IsInsideShip())
+            if (taskQueue.Count == 0)
             {
-                taskQueue.Enqueue(new LandingTask(travelTask.Destination));
+                if (task is TravelTask or OrbitToLocationTask && task.Destination.CanLand())
+                {
+                    taskQueue.Enqueue(new LandingTask(task.Destination));
+                }
             }
 
-            taskQueue.Dequeue();
             RunTask();
         }
 
         private void StopTask()
         {
-            if (GetCurrentTask() is TakeOffTask or LandingTask)
+            if (GetCurrentTask() is TakeOffTask or LandingTask or OrbitToLocationTask)
                 cockpitController.ExitLandingMode();
 
             if (taskNotification == null)
@@ -713,16 +833,23 @@ namespace NeuroPilot
             taskNotification = null;
         }
 
+        private void ShipFluidDetector_OnEnterFluidType(FluidVolume.Type fluidType)
+        {
+            if (IsLanding() && fluidType == FluidVolume.Type.WATER)
+            {
+                // We've landed in water, don't wait for the stuck landing detection
+                OnAutopilotMessage.Invoke($"Autopilot complete. The ship has splashed down in a body of water.", false);
+                CompleteTask();
+            }
+        }
+
         private void Autopilot_OnArriveAtDestination(float arrivalError)
         {
             switch (arrivalError)
             {
                 case > 100f:
-                    if (GetCurrentDestination() is PlayerDestination && Destinations.GetPlayerLocation() == Destinations.GetShipLocation())
-                        AcceptTask(new LandingTask(Destinations.GetShipLocation()));
-                    else
-                        // We effectively *didn't* arrive at the destination if the error is too large; retry
-                        AcceptTask(new TravelTask(GetCurrentDestination()));
+                    // We effectively *didn't* arrive at the destination if the error is too large; retry
+                    AcceptTask(new TravelTask(GetCurrentDestination()));
                     return;
                 case > 50f:
                     OnAutopilotMessage.Invoke($"Autopilot arrived at destination: {GetCurrentDestinationName()} (undershot by {arrivalError:F2} meters).", true);
