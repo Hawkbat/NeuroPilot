@@ -21,6 +21,7 @@ namespace NeuroPilot
         ShipCockpitController cockpitController;
         Autopilot autopilot;
         SectorDetector shipSectorDetector;
+        FogWarpDetector fogWarpDetector;
         ShipFluidDetector shipFluidDetector;
         HatchController hatchController;
         StarfieldController starfield;
@@ -74,12 +75,16 @@ namespace NeuroPilot
         public bool IsAutopilotAvailable() => playerHasEnteredShip && !IsAutopilotDamaged() && !(ModConfig.ManualOverride && PlayerState.AtFlightConsole());
         public bool IsAutopilotDamaged() => autopilot.IsDamaged() || cockpitController._shipSystemFailure || !Locator.GetShipBody().gameObject.activeSelf;
 
+        public bool InBrambleDimension() => fogWarpDetector.GetOuterFogWarpVolume() != null;
+        public bool InPlayerBrambleDimension() => InBrambleDimension() && PlayerState.GetOuterFogWarpVolume() == fogWarpDetector.GetOuterFogWarpVolume();
+
         protected void Awake()
         {
             starfield = GameObject.Find("Starfield").GetComponent<StarfieldController>();
             cockpitController = gameObject.GetComponent<ShipCockpitController>();
             autopilot = cockpitController._autopilot;
             shipSectorDetector = transform.root.GetComponentInChildren<SectorDetector>();
+            fogWarpDetector = transform.root.GetComponentInChildren<FogWarpDetector>();
             shipFluidDetector = transform.root.GetComponentInChildren<ShipFluidDetector>();
             hatchController = transform.root.GetComponentInChildren<HatchController>();
 
@@ -297,6 +302,13 @@ namespace NeuroPilot
             if (refFrame == null)
             {
                 error = $"Cannot acquire a lock on destination '{destination.Name}'.";
+                return false;
+            }
+
+
+            if (InBrambleDimension() && destination is not PlayerDestination or TargetedDestination)
+            {
+                error = $"Cannot acquire a lock on destination '{destination.Name}' due to spacial distortion from being inside Dark Bramble.";
                 return false;
             }
 
