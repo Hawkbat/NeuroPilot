@@ -521,13 +521,8 @@ namespace NeuroPilot
         public override string Name => GetDestinationName();
         public override bool IsAvailable(out string reason)
         {
-            if (referenceFrame == null)
-            {
-                reason = "Unlisted destination.";
-                return false;
-            }
-            reason = string.Empty;
-            return true;
+            reason = "Unlisted destination.";
+            return false;
         }
         public override bool CanLand() => Destination()?.CanLand() ?? false;
 
