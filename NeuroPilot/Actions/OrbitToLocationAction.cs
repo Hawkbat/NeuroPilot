@@ -20,7 +20,7 @@ namespace NeuroPilot.Actions
             Type = JsonSchemaType.Object,
             Required = [destinationPropName, locationPropName],
             Properties = new Dictionary<string, JsonSchema> {
-                { destinationPropName, QJS.Enum(Destinations.GetRegisteredNames()) },
+                { destinationPropName, QJS.Enum(Destinations.GetAllValidNames()) },
                 { locationPropName, new JsonSchema { Type = JsonSchemaType.String } },
             },
         };

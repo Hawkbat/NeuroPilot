@@ -17,6 +17,7 @@ namespace NeuroPilot
         internal static NeuroPilot instance;
 
         INeuroAction[] autopilotActions;
+        float changeCheckCooldown;
         bool strangerDiscovered;
 
         public bool IsAutopilotAvailable =>
@@ -70,6 +71,16 @@ namespace NeuroPilot
 
             if (IsAutopilotAvailable) SetUpAutopilotActions();
             else CleanUpAutopilotActions();
+
+            if (changeCheckCooldown <= 0f && Destinations.CheckForChanges())
+            {
+                UpdateAutopilotActions();
+                changeCheckCooldown = 1f;
+            }
+            else
+            {
+                changeCheckCooldown -= Time.deltaTime;
+            }
         }
 
         public override void Configure(IModConfig config)
@@ -317,7 +328,7 @@ namespace NeuroPilot
                 }
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
-                foreach (var dest in Destinations.GetRegistered())
+                foreach (var dest in Destinations.GetAll())
                 {
                     GUILayout.BeginHorizontal();
                     GUI.enabled = dest.IsAvailable(out string reason) && dest != selectedDestination;

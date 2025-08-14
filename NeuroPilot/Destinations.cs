@@ -50,12 +50,13 @@ namespace NeuroPilot
             new UnlistedDestination()
         ];
 
+        static readonly Dictionary<Destination, bool> previousAvailability = [];
+        static readonly Dictionary<Destination, string> previousNames = [];
+
         public static IEnumerable<Destination> GetAll() => destinations;
-        public static IEnumerable<Destination> GetRegistered() => destinations.Where(d => d.ShouldRegister());
-        public static IEnumerable<Destination> GetAllValid() => GetRegistered().Where(d => d.IsAvailable(out string reason));
+        public static IEnumerable<Destination> GetAllValid() => GetAll().Where(d => d.IsAvailable(out string reason));
 
         public static IEnumerable<string> GetAllNames() => destinations.Select(d => d.Name);
-        public static IEnumerable<string> GetRegisteredNames() => GetRegistered().Select(d => d.Name);
         public static IEnumerable<string> GetAllValidNames() => GetAllValid().Select(d => d.Name);
 
         public static Destination GetByName(string name)
@@ -88,6 +89,29 @@ namespace NeuroPilot
         {
             foreach (var d in destinations) d.SetUp();
         }
+
+        public static bool CheckForChanges()
+        {
+            var anyChanged = false;
+            foreach (var d in destinations)
+            {
+                var name = d.Name;
+                var available = d.IsAvailable(out _);
+                if (previousNames.TryGetValue(d, out string previousName))
+                {
+                    if (name != previousName)
+                        anyChanged = true;
+                }
+                previousNames[d] = name;
+                if (previousAvailability.TryGetValue(d, out bool wasAvailable))
+                {
+                    if (available != wasAvailable)
+                        anyChanged = true;
+                }
+                previousAvailability[d] = available;
+            }
+            return anyChanged;
+        }
     }
 
     public abstract class Destination(string name, float innerRadius, float outerRadius) // TODO can one of these just be made autopilotRadius
@@ -96,7 +120,6 @@ namespace NeuroPilot
         public float InnerRadius => innerRadius;
         public float OuterRadius => outerRadius;
 
-        public virtual bool ShouldRegister() => true;
         public virtual bool CanOrbit() => false;
         public virtual bool CanLand() => false;
         public override string ToString() => Name;
@@ -181,8 +204,6 @@ namespace NeuroPilot
             Locator.GetShipLogManager() && Locator.GetShipLogManager().IsFactRevealed("IP_RING_WORLD_X1")
                 ? "The Stranger"
                 : "Dark shadow over the sun";
-
-        public override bool ShouldRegister() => IsAvailable(out _);
 
         public override bool IsAvailable(out string reason)
         {
@@ -363,8 +384,6 @@ namespace NeuroPilot
             return true;
         }
 
-        public override bool ShouldRegister() => IsAvailable(out _);
-
         public override void SetUp()
         {
             base.SetUp();
@@ -401,15 +420,10 @@ namespace NeuroPilot
                 return false;
             }
 
-            if (PlayerState.InBrambleDimension())
+            if (PlayerState.InBrambleDimension() && EnhancedAutoPilot.GetInstance() && !EnhancedAutoPilot.GetInstance().InPlayerBrambleDimension())
             {
-                var playerDimension = PlayerState.GetOuterFogWarpVolume();
-                var shipDimension = Locator.GetShipDetector().GetComponent<FogWarpDetector>().GetOuterFogWarpVolume();
-                if (playerDimension != shipDimension)
-                {
-                    reason = "Player is inside another part of Dark Bramble and cannot be located.";
-                    return false;
-                }
+                reason = "Player is inside another part of Dark Bramble and cannot be located.";
+                return false;
             }
 
             if (PlayerState.InCloakingField() && !Locator.GetCloakFieldController().isShipInsideCloak)
@@ -486,6 +500,13 @@ namespace NeuroPilot
                 reason = "Ship cannot autopilot to itself.";
                 return false;
             }
+
+            if (PlayerState.InBrambleDimension() && EnhancedAutoPilot.GetInstance() && !EnhancedAutoPilot.GetInstance().InPlayerBrambleDimension())
+            {
+                reason = "Player is inside another part of Dark Bramble and their targeted body cannot be located.";
+                return false;
+            }
+
             reason = string.Empty;
             return true;
         }
@@ -495,7 +516,16 @@ namespace NeuroPilot
     {
         ReferenceFrame referenceFrame;
         public override string Name => GetDestinationName();
-        public override bool ShouldRegister() => false;
+        public override bool IsAvailable(out string reason)
+        {
+            if (referenceFrame == null)
+            {
+                reason = "Unlisted destination.";
+                return false;
+            }
+            reason = string.Empty;
+            return true;
+        }
         public override bool CanLand() => Destination()?.CanLand() ?? false;
 
         public void SetReferenceFrame(ReferenceFrame rf)
