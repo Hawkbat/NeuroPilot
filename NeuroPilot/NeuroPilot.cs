@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace NeuroPilot
 {
-    public class NeuroPilot : ModBehaviour //TODO replace nulls with ?? or if(gameObject) //TODO check ?.'s //TODO sort all methods //TODO orbit command //TODO instruments while not in pilots seat
+    public class NeuroPilot : ModBehaviour //TODO replace nulls with ?? or if(gameObject) //TODO check ?.'s //TODO sort all methods //TODO instruments while not in pilots seat //TODO make sun station destination more obviously not work //TODO on abort, cockpitController._thrustController._shipAlignment.enabled = landing mode enabled //TODO better prompts and completion alerts //TODO does landing on the quantum moon and leaving it, still mess the ship up? //TODO
     {
         internal static NeuroPilot instance;
 

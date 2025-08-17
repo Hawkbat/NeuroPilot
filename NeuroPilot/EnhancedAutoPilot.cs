@@ -48,7 +48,7 @@ namespace NeuroPilot
             GetCurrentTask()?.Destination ?? Destinations.GetByReferenceFrame(autopilot._referenceFrame);
 
         public string GetCurrentDestinationName() =>
-            GetCurrentDestination()?.ToString() ?? autopilot._referenceFrame?.GetHUDDisplayName() ?? string.Empty;
+            GetCurrentDestination()?.ToString() ?? autopilot._referenceFrame?.GetHUDDisplayName() ?? string.Empty; //TODO GetHUDDisplayName() can never be null
 
         public Destination GetCurrentLocation() => Destinations.GetShipLocation() ?? Destinations.GetByReferenceFrame(shipSectorDetector.GetPassiveReferenceFrame());
 
@@ -824,7 +824,7 @@ namespace NeuroPilot
 
             if (taskQueue.Count == 0)
             {
-                if (task is TravelTask or OrbitToLocationTask && task.Destination.CanLand())
+                if (((task is TravelTask && !PlayerState.IsInsideShip()) || task is OrbitToLocationTask) && task.Destination.CanLand())
                 {
                     taskQueue.Enqueue(new LandingTask(task.Destination));
                 }
