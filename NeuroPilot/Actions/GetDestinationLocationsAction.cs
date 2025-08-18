@@ -53,6 +53,11 @@ namespace NeuroPilot.Actions
         protected override UniTask ExecuteAsync(Destination destination)
         {
             var locationNames = string.Join(", ", Locations.ByDestination(destination).Select(pair => pair.Item1));
+            if (string.IsNullOrEmpty(locationNames))
+            {
+                Context.Send($"No known locations on {destination.Name}.");
+                return UniTask.CompletedTask;
+            }
             Context.Send($"Valid locations: {locationNames}");
             return UniTask.CompletedTask;
         }

@@ -28,7 +28,6 @@ namespace NeuroPilot
             }
 
             var destinationRoot = destination.GetTransform();
-            yield return (destination.Name, destinationRoot);
 
             foreach (var entryLocation in Locator._entryLocationsByID.Values.Where(e => e.transform.root == destination.GetTransform() || Vector3.Distance(e.GetPosition(), destination.GetReferenceFrame().GetPosition()) < destination.InnerRadius))
             {
@@ -73,8 +72,8 @@ namespace NeuroPilot
             var destination = Destinations.GetByName(name);
             if (destination != null)
             {
-                error = string.Empty;
-                return (destination.Name, destination.GetTransform());
+                error = "Do not repeat the planet as the location, just leave location empty.";
+                return (destination.Name, null);
             }
 
             var entry = Locator.GetShipLogManager().GetEntryList().Find(e => e.GetName(false).ToUpper().Replace("THE ", "").Trim() == name);

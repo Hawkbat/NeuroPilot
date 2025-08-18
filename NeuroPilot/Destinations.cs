@@ -141,7 +141,7 @@ namespace NeuroPilot
         }
 
         public virtual bool ShipIsAt() => GetDistanceToShip() <= OuterRadius;
-        public virtual bool PlayerIsAt() => GetDistanceToPlayer() <= OuterRadius;
+        public virtual bool PlayerIsAt() => GetDistanceToPlayer() <= InnerRadius;
 
         public virtual float GetDistanceToShip()
         {
@@ -308,7 +308,7 @@ namespace NeuroPilot
 
         public override void SetUp()
         {
-            var probeBody = GameObject.Find("NomaiProbe_Body"); //TODO move to ProbeDestination
+            var probeBody = GameObject.Find("NomaiProbe_Body");
             if (probeBody) Locations.AddReferenceFrame(probeBody, 300, 5, 15000f);
             else NeuroPilot.instance.ModHelper.Console.WriteLine("NomaiProbe_Body not found!", MessageType.Error);
             base.SetUp();
@@ -326,7 +326,7 @@ namespace NeuroPilot
         {
             if (!base.IsAvailable(out reason)) return false;
 
-            if (Locator.GetQuantumMoon().GetStateIndex() == 5)
+            if ((Locator.GetQuantumMoon()?.GetStateIndex() ?? 5) == 5)
             {
                 reason = $"Cannot locate {Name}.";
                 return false;

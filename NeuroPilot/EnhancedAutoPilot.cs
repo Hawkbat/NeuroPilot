@@ -340,6 +340,7 @@ namespace NeuroPilot
             if (IsAutopilotActive()) AbortTask();
 
             OnAutopilotMessage.Invoke("Autopilot has been aborted.", true);
+            if (autopilot.IsFlyingToDestination() || IsCrashing()) OnAutopilotMessage.Invoke("Beware this does not cancel the ship's momentum, consider evading your previous destination.", true);
 
             error = string.Empty;
             return true;
@@ -421,13 +422,13 @@ namespace NeuroPilot
 
             if (!locationTransform)
             {
-                error = $"{locationError}. Valid locations: {string.Join(", ", Locations.ByDestination(destination).Select((name, transform) => name))}";
+                error = $"{locationError} Valid locations: {string.Join(", ", Locations.ByDestination(destination).Select((name, transform) => name.Item1))}";
                 return false;
             }
 
             if (!Locations.ByDestination(destination).Any(pair => pair.Item2 == locationTransform))
             {
-                error = $"Target location is not at the selected destination. Valid locations: {string.Join(", ", Locations.ByDestination(destination).Select((name, transform) => name))}";
+                error = $"Target location is not at the selected destination. Valid locations: {string.Join(", ", Locations.ByDestination(destination).Select((name, transform) => name.Item1))}";
                 return false;
             }
 
@@ -644,12 +645,7 @@ namespace NeuroPilot
 
         private void UpdateObstacles()
         {
-            if (!IsTraveling())
-            {
-                possibleObstacles.Clear();
-                activeObstacles.Clear();
-                return;
-            }
+            if (!IsAutopilotAvailable()) return;
 
             var currentDestination = GetCurrentDestination();
             var start = Locator.GetShipBody().GetPosition();
@@ -671,6 +667,10 @@ namespace NeuroPilot
                         activeObstacles.Remove(d);
                     }
                     continue;
+                }
+
+                if (currentDestination == null && d.GetReferenceFrame() != null) {
+                    end = -Locator.GetShipBody().GetRelativeVelocity(d.GetReferenceFrame()) * 15;
                 }
 
                 Vector3 nearestPoint;
@@ -748,17 +748,12 @@ namespace NeuroPilot
             {
                 if (GetCurrentLocation() != currentPlayerLocation)
                 {
-                    taskQueue.Enqueue(new TravelTask(Destinations.GetPlayerLocation()));
+                    taskQueue.Enqueue(new TravelTask(currentPlayerLocation));
                 }
 
                 if (currentPlayerLocation?.CanOrbit() ?? false)
                 {
-                    taskQueue.Enqueue(new OrbitToLocationTask(Destinations.GetPlayerLocation(), task.Destination.Name, Locator.GetPlayerTransform()));
-                }
-
-                if (currentPlayerLocation?.CanLand() ?? false)
-                {
-                    taskQueue.Enqueue(new LandingTask(currentPlayerLocation));
+                    taskQueue.Enqueue(new OrbitToLocationTask(currentPlayerLocation, task.Destination.Name, Locator.GetPlayerTransform()));
                 }
             }
             else
@@ -780,7 +775,7 @@ namespace NeuroPilot
                 return;
 
             OnAutopilotMessage.Invoke($"Autopilot engaged to {GetCurrentTask()}", true);
-            taskNotification = new NotificationData(NotificationTarget.All, $"Autopilot Engaged: {GetCurrentTask()}".ToUpper());
+            taskNotification = new NotificationData(NotificationTarget.All, $"Autopilot Engaged: {taskQueue.Last()}".ToUpper());
             NotificationManager.SharedInstance.PostNotification(taskNotification, true);
             if (GetCurrentTask() is TravelTask or CrashTask)
                 FaceDirection(GetCurrentDestination().GetReferenceFrame().GetPosition() - Locator.GetShipBody().GetWorldCenterOfMass());
@@ -835,6 +830,9 @@ namespace NeuroPilot
 
         private void StopTask()
         {
+            possibleObstacles.Clear();
+            activeObstacles.Clear();
+
             if (GetCurrentTask() is TakeOffTask or LandingTask or OrbitToLocationTask)
                 cockpitController.ExitLandingMode();
 

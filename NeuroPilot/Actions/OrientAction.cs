@@ -12,7 +12,7 @@ namespace NeuroPilot.Actions
     {
         const string targetPropName = "target";
 
-        public override string Name => "orient";
+        public override string Name => "ship_look_at";
 
         protected override string Description => "Face the ship towards a given object. Or one of those extra bright stars. Cannot be used while landed.";
 

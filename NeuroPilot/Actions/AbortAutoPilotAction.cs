@@ -9,7 +9,7 @@ namespace NeuroPilot.Actions
     {
         public override string Name => "abort_auto_pilot";
 
-        protected override string Description => "Deactivates the ship's autopilot while in flight, returning control to the player.";
+        protected override string Description => "Deactivates the ship's autopilot while in flight, returning control to the player if currently on a planet.";
 
         protected override JsonSchema Schema => new();
 

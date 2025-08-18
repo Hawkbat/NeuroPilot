@@ -7,12 +7,11 @@ using OWML.ModHelper;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Security.Cryptography;
 using UnityEngine;
 
 namespace NeuroPilot
 {
-    public class NeuroPilot : ModBehaviour //TODO replace nulls with ?? or if(gameObject) //TODO check ?.'s //TODO sort all methods //TODO instruments while not in pilots seat //TODO make sun station destination more obviously not work //TODO on abort, cockpitController._thrustController._shipAlignment.enabled = landing mode enabled //TODO better prompts and completion alerts //TODO does landing on the quantum moon and leaving it, still mess the ship up? //TODO
+    public class NeuroPilot : ModBehaviour //TODO ship light colors.. should Bloom? //TODO  //TODO instruments while not in pilots seat //TODO on abort, cockpitController._thrustController._shipAlignment.enabled = landing mode enabled //TODO unkown destination isnt working, i use brittle chunks at the WH to check //TODO targeted destination changing mid flight messes with obstacles //TODO sometimes cant target //TODO better prompts and completion alerts //TODO replace nulls with ?? or if(gameObject) //TODO check ?.'s //TODO sort all methods 
     {
         internal static NeuroPilot instance;
 
@@ -172,7 +171,6 @@ namespace NeuroPilot
                     new EvadeAction(),
                     new AbortAutoPilotAction(),
                     new GetDestinationLocationsAction(),
-                    new OrbitToLocationAction(),
                     new StatusAction(),
                     new ControlShipHatchAction(),
                     new ControlShipHeadlightsAction(),
