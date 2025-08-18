@@ -336,11 +336,11 @@ namespace NeuroPilot
                 return false;
             }
 
-            if (autopilot.IsFlyingToDestination()) autopilot.Abort();
-            if (IsAutopilotActive()) AbortTask();
-
             OnAutopilotMessage.Invoke("Autopilot has been aborted.", true);
             if (autopilot.IsFlyingToDestination() || IsCrashing()) OnAutopilotMessage.Invoke("Beware this does not cancel the ship's momentum, consider evading your previous destination.", true);
+
+            if (autopilot.IsFlyingToDestination()) autopilot.Abort();
+            if (IsAutopilotActive()) AbortTask();
 
             error = string.Empty;
             return true;
