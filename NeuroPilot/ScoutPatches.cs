@@ -41,8 +41,9 @@ namespace NeuroPilot
         public static void SurveyorProbe_Awake_Postfix(SurveyorProbe __instance)
         {
             if (!ModConfig.ScoutLauncher_Neuro) return;
-            if (surveyorProbes.Count == 0) NeuroActionHandler.RegisterActions(new SetScoutColorAction());
+            if (surveyorProbes.Count == 0) NeuroActionHandler.RegisterActions(new SetLightColorAction());
             surveyorProbes.Add(__instance);
+            UpdateSurveyProbeLights();
         }
 
         [HarmonyPrefix]
@@ -93,6 +94,18 @@ namespace NeuroPilot
                 }
             }
         }
+        public static void UpdateShipLights()
+        {
+            if (EnhancedAutoPilot.GetInstance() == null) return;
+            ShipCockpitController cockpitController = EnhancedAutoPilot.GetInstance().GetCockpitController();
+            if (cockpitController == null) return;
+            cockpitController._headlight._light.color = surveyorProbeColor;
+            cockpitController._headlight._intensityScale = surveyorProbeIntensity;
+
+            cockpitController._landingLight._light.color = surveyorProbeColor;
+            cockpitController._landingLight._intensityScale = surveyorProbeIntensity;
+        }
+
         public static async UniTask TurnSurveyorProbeAsync(SurveyorProbe surveyorProbe, string direction, int steps)
         {
             float rotationStep = (direction == "left" || direction == "up") ? -30f : 30f;

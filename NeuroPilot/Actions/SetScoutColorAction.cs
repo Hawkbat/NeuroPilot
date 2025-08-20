@@ -8,9 +8,9 @@ using UnityEngine;
 
 namespace NeuroPilot.Actions
 {
-    public class SetScoutColorAction : NeuroAction
+    public class SetLightColorAction : NeuroAction
     {
-        public override string Name => "set_scout_light_color";
+        public override string Name => "set_light_color";
 
         protected override string Description => "Set the color in hex format (#RRGGBB) and optional brightness from 0 to 3 (default: 1) of the scout's lights.";
 
@@ -41,6 +41,7 @@ namespace NeuroPilot.Actions
         protected override async UniTask ExecuteAsync()
         {
             ScoutPatches.UpdateSurveyProbeLights();
+            ScoutPatches.UpdateShipLights();
             await UniTask.CompletedTask;
         }
     }

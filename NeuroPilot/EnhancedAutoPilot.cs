@@ -71,6 +71,8 @@ namespace NeuroPilot
 
         public IEnumerable<Destination> GetPossibleObstacles() => possibleObstacles;
         public IEnumerable<Destination> GetActiveObstacles() => activeObstacles;
+        public ShipCockpitController GetCockpitController() => cockpitController;
+        
 
         public bool IsAutopilotAvailable() => playerHasEnteredShip && !IsAutopilotDamaged() && !(ModConfig.ManualOverride && PlayerState.AtFlightConsole());
         public bool IsAutopilotDamaged() => autopilot.IsDamaged() || cockpitController._shipSystemFailure || !Locator.GetShipBody().gameObject.activeSelf;
@@ -95,6 +97,7 @@ namespace NeuroPilot
             autopilot.OnAbortAutopilot += Autopilot_OnAbortAutopilot;
 
             GlobalMessenger.AddListener("EnterShip", OnEnterShip);
+            ScoutPatches.UpdateShipLights();
         }
 
         protected void OnDestroy()
