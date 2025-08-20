@@ -448,7 +448,7 @@ namespace NeuroPilot
                 return false;
             }
 
-            if (cockpitController._headlight.IsOn() == on)
+            if (cockpitController._headlight.IsPowered() == on)
             {
                 error = $"Ship headlights are already {(on ? "on" : "off")}.";
                 return false;
