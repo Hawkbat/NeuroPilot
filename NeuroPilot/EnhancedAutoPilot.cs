@@ -74,7 +74,7 @@ namespace NeuroPilot
         public ShipCockpitController GetCockpitController() => cockpitController;
         
 
-        public bool IsAutopilotAvailable() => playerHasEnteredShip && !IsAutopilotDamaged() && !(ModConfig.ManualOverride && PlayerState.AtFlightConsole() && !(Locator.GetCloakFieldController().isShipInsideCloak && !PlayerState.AtFlightConsole()));
+        public bool IsAutopilotAvailable() => playerHasEnteredShip && !IsAutopilotDamaged() && !(ModConfig.ManualOverride && PlayerState.AtFlightConsole()) && !Locator.GetCloakFieldController().isShipInsideCloak;
         public bool IsAutopilotDamaged() => autopilot.IsDamaged() || cockpitController._shipSystemFailure || !Locator.GetShipBody().gameObject.activeSelf;
 
         public bool InBrambleDimension() => fogWarpDetector.GetOuterFogWarpVolume() != null;
