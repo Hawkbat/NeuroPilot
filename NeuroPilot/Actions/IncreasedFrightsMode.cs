@@ -26,7 +26,7 @@ namespace NeuroPilot.Actions
 
         protected override ExecutionResult Validate(ActionJData actionData)
         {
-            if (actionData.Data?["on"]) {
+            if (actionData.Data?["on"].ToObject<bool>() ?? true) {
                 return ExecutionResult.Success("Enabled Increased Frights Mode.");
             }
             else {

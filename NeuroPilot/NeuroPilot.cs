@@ -255,7 +255,7 @@ namespace NeuroPilot
                 SetUpAutopilotActions(true);
             }
             if (Locator.GetCloakFieldController().isShipInsideCloak) {
-                SetupStrangerActions();
+                SetUpStrangerActions();
             }
         }
 
