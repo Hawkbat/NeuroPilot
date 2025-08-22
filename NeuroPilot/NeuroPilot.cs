@@ -16,6 +16,8 @@ namespace NeuroPilot
         internal static NeuroPilot instance;
 
         INeuroAction[] autopilotActions;
+        INeuroAction[] strangerActions;
+
         float changeCheckCooldown;
         bool strangerDiscovered;
 
@@ -62,6 +64,7 @@ namespace NeuroPilot
         {
             CleanUpAutopilotActions();
             CleanUpScopeActions();
+            CleanUpStrangerActions();
         }
 
         protected void Update()
@@ -107,6 +110,7 @@ namespace NeuroPilot
             if (newScene != OWScene.SolarSystem)
             {
                 CleanUpAutopilotActions();
+                CleanUpStrangerActions();
                 CleanUpScopeActions();
                 return;
             }
@@ -190,6 +194,24 @@ namespace NeuroPilot
             }
         }
 
+        public void SetUpStrangerActions(bool silent = false)
+        {
+            if (strangerActions == null)
+            {
+                strangerActions = [ //TODO only register available ones
+                    new IncreasedFrightsAction(),
+                ];
+
+                NeuroActionHandler.RegisterActions(strangerActions);
+
+                if (!silent)
+                {
+                    Context.Send("Something is interfering with your ability to control the ship, but maybe you can control something else...");
+                    ModHelper.Console.WriteLine($"Registered {strangerActions.Length} neuro actions.");
+                }
+            }
+        }
+
         public void CleanUpAutopilotActions(bool silent = false)
         {
             strangerDiscovered = false;
@@ -211,12 +233,29 @@ namespace NeuroPilot
 
         }
 
+        public void CleanUpStrangerActions(bool silent = false)
+        {
+            strangerDiscovered = false;
+
+            if (strangerActions != null)
+            {
+                NeuroActionHandler.UnregisterActions(strangerActions);
+
+    
+                strangerActions = null;
+            }
+
+        }
+
         public void UpdateAutopilotActions()
         {
             CleanUpAutopilotActions(true);
             if (IsAutopilotAvailable)
             {
                 SetUpAutopilotActions(true);
+            }
+            if (Locator.GetCloakFieldController().isShipInsideCloak) {
+                SetupStrangerActions();
             }
         }
 

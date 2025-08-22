@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/ow-mods/owml/master/schemas/manifest_schema.json",
   "filename": "NeuroPilot.dll",
-  "author": "Hawkbar, DialingSpoon527, Taflaxx",
+  "author": "Hawkbar, DialingSpoon527, Taflaxx, Acamaeda",
   "name": "NeuroPilot",
   "uniqueName": "Hawkbar.NeuroPilot",
   "version": "1.5.2",
