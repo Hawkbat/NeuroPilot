@@ -235,7 +235,6 @@ namespace NeuroPilot
 
         public void CleanUpStrangerActions(bool silent = false)
         {
-            strangerDiscovered = false;
 
             if (strangerActions != null)
             {
@@ -250,12 +249,15 @@ namespace NeuroPilot
         public void UpdateAutopilotActions()
         {
             CleanUpAutopilotActions(true);
-            if (IsAutopilotAvailable)
+            CleanUpStrangerActions(true);
+            if (Locator.GetCloakFieldController().isShipInsideCloak)
+            {
+                SetUpStrangerActions();
+                EnhancedAutoPilot.GetInstance().TryAbortTravel(out var error);
+            }
+            else if (IsAutopilotAvailable)
             {
                 SetUpAutopilotActions(true);
-            }
-            if (Locator.GetCloakFieldController().isShipInsideCloak) {
-                SetUpStrangerActions();
             }
         }
 
